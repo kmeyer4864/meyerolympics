@@ -46,7 +46,7 @@ export async function createOlympics(
         .single()
     )
 
-    const { data: olympics, error } = await withTimeout(insertPromise, 10000, 'Olympics insert took too long')
+    const { data: olympics, error } = await withTimeout(insertPromise, 30000, 'Olympics insert took too long — check your connection and try again')
 
     console.log('createOlympics: insert result', { olympics, error })
 
@@ -64,9 +64,11 @@ export async function createOlympics(
     config: eventOptions?.[eventType] || {},
   }))
 
-  const { error: eventsError } = await supabase
-    .from('olympics_events')
-    .insert(eventsToInsert)
+  const { error: eventsError } = await withTimeout(
+    Promise.resolve(supabase.from('olympics_events').insert(eventsToInsert)),
+    15000,
+    'Events insert took too long'
+  )
 
   if (eventsError) {
     // Clean up the olympics if events failed to create

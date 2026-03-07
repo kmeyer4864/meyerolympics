@@ -1,20 +1,12 @@
-import type { OlympicsEvent, MatchResult, EventComponentProps } from '../types'
+import type { OlympicsEvent, MatchResult } from '../types'
 import { tieBreakByTime } from '../types'
-
-// Placeholder component - to be implemented in Phase 3
-function HoldemGame(_props: EventComponentProps) {
-  return (
-    <div className="flex items-center justify-center h-64">
-      <p className="text-gray-400">Texas Hold'em coming soon...</p>
-      <p className="text-gray-500 text-sm mt-2">Requires realtime mode</p>
-    </div>
-  )
-}
+import HoldemGame from './HoldemGame'
+import { WIN_THRESHOLD } from './types'
 
 export const holdemEvent: OlympicsEvent = {
   id: 'holdem',
   name: "Texas Hold'em",
-  description: 'Heads-up poker! 20 hands or until someone busts.',
+  description: `Heads-up poker! First to ${WIN_THRESHOLD} chips (80%) wins.`,
   icon: '🃏',
   estimatedMinutes: 15,
   supportsAsync: false,
@@ -24,8 +16,9 @@ export const holdemEvent: OlympicsEvent = {
     'Heads-up Texas Hold\'em poker',
     'Each player starts with 1000 chips',
     'Small blind 10, big blind 20',
-    'Play 20 hands or until one player is eliminated',
-    'Player with most chips at the end wins',
+    `First player to reach ${WIN_THRESHOLD} chips (80% of total) wins`,
+    'If a player runs out of chips, they lose',
+    'Realtime only - both players must be online',
   ],
 
   compareResults(r1: MatchResult, r2: MatchResult): 'p1' | 'p2' | 'tie' {
