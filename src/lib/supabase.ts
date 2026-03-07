@@ -13,5 +13,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
+    // Disable lock to prevent "Lock broken by another request" errors
+    lock: false,
+    // Use localStorage instead of in-memory for more reliable session persistence
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
   },
 })

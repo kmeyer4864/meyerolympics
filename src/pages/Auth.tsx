@@ -62,7 +62,7 @@ export default function Auth() {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h1 className="font-display text-4xl font-bold text-gold">
-            Competition Olympics
+            Meyer Olympics
           </h1>
           <p className="mt-2 text-gray-400">
             {mode === 'signin' ? 'Sign in to continue' : 'Create your account'}

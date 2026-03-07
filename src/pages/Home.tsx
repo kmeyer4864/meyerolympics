@@ -9,7 +9,7 @@ export default function Home() {
       {/* Header */}
       <header className="px-6 py-4 flex items-center justify-between">
         <div className="font-display text-xl font-bold text-gold">
-          Competition Olympics
+          Meyer Olympics
         </div>
         {user && (
           <div className="flex items-center gap-4">
@@ -30,7 +30,7 @@ export default function Home() {
       <main className="flex-1 flex flex-col items-center justify-center px-6 text-center">
         <div className="text-6xl mb-6">🏅</div>
         <h1 className="font-display text-5xl md:text-6xl font-bold text-white mb-4">
-          Competition
+          Meyer
           <span className="text-gradient-gold"> Olympics</span>
         </h1>
         <p className="text-xl text-gray-400 max-w-md mb-12">

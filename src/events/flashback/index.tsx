@@ -1,48 +1,53 @@
-import type { OlympicsEvent, MatchResult, EventComponentProps } from '../types'
-import { tieBreakByTime } from '../types'
-
-// Placeholder component - to be implemented in Phase 2
-function FlashbackGame(_props: EventComponentProps) {
-  return (
-    <div className="flex items-center justify-center h-64">
-      <p className="text-gray-400">Flashback game coming soon...</p>
-    </div>
-  )
-}
+import type { OlympicsEvent, MatchResult } from '../types'
+import FlashbackGame from './FlashbackGame'
+import { getRandomPuzzle } from './puzzleData'
 
 export const flashbackEvent: OlympicsEvent = {
   id: 'flashback',
   name: 'Flashback',
-  description: 'Group 16 words into 4 categories of 4. Like NYT Connections!',
-  icon: '🔗',
+  description: 'Place historical events in the correct order on a timeline!',
+  icon: '📅',
   estimatedMinutes: 5,
   supportsAsync: true,
   supportsRealtime: false,
   winCondition: 'highest_score',
   rules: [
-    'Find 4 groups of 4 related words',
-    'Select 4 words and submit to check if they form a group',
-    '4 mistakes allowed before game over',
-    'Score = 1000 - (mistakes × 150) - (time × 0.5)',
+    'One event starts on the timeline with its year shown',
+    '8 more events appear one at a time - place each in order',
+    'Wrong placements earn a strike (event moves to correct spot)',
+    'Fewer strikes = better score. Speed breaks ties.',
     'Both players receive the same puzzle',
   ],
 
   compareResults(r1: MatchResult, r2: MatchResult): 'p1' | 'p2' | 'tie' {
-    // Higher score wins
-    if (r1.rawValue > r2.rawValue) return 'p1'
-    if (r2.rawValue > r1.rawValue) return 'p2'
-    return tieBreakByTime(r1, r2)
+    const strikes1 = r1.metadata.strikes as number
+    const strikes2 = r2.metadata.strikes as number
+
+    // Fewer strikes wins
+    if (strikes1 < strikes2) return 'p1'
+    if (strikes2 < strikes1) return 'p2'
+
+    // Tie on strikes - faster time wins
+    const elapsed1 = r1.metadata.elapsedMs as number
+    const elapsed2 = r2.metadata.elapsedMs as number
+
+    if (elapsed1 < elapsed2) return 'p1'
+    if (elapsed2 < elapsed1) return 'p2'
+    return 'tie'
   },
 
   formatScore(result: MatchResult): string {
-    return `${Math.round(result.rawValue)} pts`
+    const strikes = result.metadata.strikes as number
+    const elapsedMs = result.metadata.elapsedMs as number
+    const minutes = Math.floor(elapsedMs / 60000)
+    const seconds = Math.floor((elapsedMs % 60000) / 1000)
+    return `${strikes} strike${strikes !== 1 ? 's' : ''} (${minutes}:${seconds.toString().padStart(2, '0')})`
   },
 
   generatePuzzleMetadata(): Record<string, unknown> {
-    // Pick a random puzzle set ID (0-9 for now, expand later)
-    const puzzleSetId = Math.floor(Math.random() * 10)
+    const puzzle = getRandomPuzzle()
     return {
-      puzzleSetId,
+      puzzleId: puzzle.id,
     }
   },
 

@@ -151,8 +151,10 @@ supabase.auth.onAuthStateChange(async (_event, session) => {
 })
 
 // Check for existing session on load
+console.log('Starting getSession check...')
+const sessionStart = Date.now()
 supabase.auth.getSession().then(({ data: { session } }) => {
-  console.log('getSession result:', session ? 'has session' : 'no session')
+  console.log('getSession result:', session ? 'has session' : 'no session', `(took ${Date.now() - sessionStart}ms)`)
   const { setSession, setUser, setAuthLoading, fetchProfile } = useAppStore.getState()
 
   setSession(session)
@@ -164,7 +166,7 @@ supabase.auth.getSession().then(({ data: { session } }) => {
 
   setAuthLoading(false)
 }).catch((err) => {
-  console.error('getSession error:', err)
+  console.error('getSession error:', err, `(took ${Date.now() - sessionStart}ms)`)
   useAppStore.getState().setAuthLoading(false)
 })
 

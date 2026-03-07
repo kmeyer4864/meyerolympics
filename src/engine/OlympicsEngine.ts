@@ -11,6 +11,14 @@ export function generateInviteCode(): string {
   ).join('')
 }
 
+// Helper to add timeout to promises
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`Timeout: ${message}`)), ms)
+  )
+  return Promise.race([promise, timeout])
+}
+
 // Create a new Olympics
 export async function createOlympics(
   player1Id: string,
@@ -20,18 +28,26 @@ export async function createOlympics(
   const inviteCode = generateInviteCode()
   console.log('createOlympics: inserting with', { inviteCode, player1Id, eventSequence, mode })
 
-  const { data: olympics, error } = await supabase
-    .from('olympics')
-    .insert({
-      invite_code: inviteCode,
-      player1_id: player1Id,
-      event_sequence: eventSequence,
-      mode,
-    })
-    .select()
-    .single()
+  // Skip session check - let RLS handle auth validation
+  console.log('createOlympics: proceeding with insert for player', player1Id)
 
-  console.log('createOlympics: insert result', { olympics, error })
+  try {
+    const insertPromise = Promise.resolve(
+      supabase
+        .from('olympics')
+        .insert({
+          invite_code: inviteCode,
+          player1_id: player1Id,
+          event_sequence: eventSequence,
+          mode,
+        })
+        .select()
+        .single()
+    )
+
+    const { data: olympics, error } = await withTimeout(insertPromise, 10000, 'Olympics insert took too long')
+
+    console.log('createOlympics: insert result', { olympics, error })
 
   if (error) {
     return { olympics: null, error: new Error(error.message) }
@@ -56,6 +72,10 @@ export async function createOlympics(
   }
 
   return { olympics, error: null }
+  } catch (err) {
+    console.error('createOlympics: exception', err)
+    return { olympics: null, error: err instanceof Error ? err : new Error(String(err)) }
+  }
 }
 
 // Join an Olympics by invite code
