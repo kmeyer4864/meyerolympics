@@ -1,5 +1,7 @@
 import { useParams, Navigate, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useOlympics } from '@/engine/useOlympics'
+import { getEventResults } from '@/engine/OlympicsEngine'
 import { useAppStore } from '@/store/useAppStore'
 import { getEvent, isValidEventType } from '@/events/registry'
 import type { MatchResult } from '@/events/types'
@@ -11,13 +13,26 @@ export default function EventPlay() {
   const {
     olympics,
     events,
-    currentEventResults,
     submitResult,
     isSubmitting,
     isLoading,
   } = useOlympics(id)
 
   const eventIndex = parseInt(idx ?? '0', 10)
+
+  // Get the event from the URL index (NOT current_event_index)
+  const dbEvent = events?.find((e) => e.event_index === eventIndex)
+
+  // Query results specifically for THIS event by its ID
+  const { data: thisEventResults } = useQuery({
+    queryKey: ['eventResults', dbEvent?.id],
+    queryFn: async () => {
+      if (!dbEvent?.id) return null
+      const { results } = await getEventResults(dbEvent.id)
+      return results
+    },
+    enabled: !!dbEvent?.id,
+  })
 
   if (!user) {
     return <Navigate to="/auth" replace />
@@ -35,33 +50,33 @@ export default function EventPlay() {
     return <Navigate to="/" replace />
   }
 
-  const dbEvent = events.find((e) => e.event_index === eventIndex)
   if (!dbEvent || !isValidEventType(dbEvent.event_type)) {
     return <Navigate to={`/olympics/${id}/summary`} replace />
   }
 
   const event = getEvent(dbEvent.event_type)
 
-  // Check if current user has already submitted
-  const hasSubmitted = currentEventResults?.some(
+  // Check if current user has already submitted to THIS specific event
+  const hasSubmittedThisEvent = thisEventResults?.some(
     (r) => r.player_id === user.id
   )
 
   // Check if opponent has submitted (for showing their result in async)
   const opponentId =
     user.id === olympics.player1_id ? olympics.player2_id : olympics.player1_id
-  const opponentResult = currentEventResults?.find(
+  const opponentResult = thisEventResults?.find(
     (r) => r.player_id === opponentId
   )
 
   const handleComplete = async (result: MatchResult) => {
-    if (isSubmitting || hasSubmitted) return
-    await submitResult(result)
+    if (isSubmitting || hasSubmittedThisEvent) return
+    // Pass the specific event ID from URL param
+    await submitResult(result, dbEvent.id)
     navigate(`/olympics/${id}/event/${eventIndex}/result`)
   }
 
-  // If already submitted, redirect to result
-  if (hasSubmitted) {
+  // If already submitted to THIS event, redirect to result
+  if (hasSubmittedThisEvent) {
     return <Navigate to={`/olympics/${id}/event/${eventIndex}/result`} replace />
   }
 

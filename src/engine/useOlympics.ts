@@ -39,8 +39,8 @@ interface UseOlympicsReturn {
   create: (eventSequence: EventType[], mode?: 'async' | 'realtime', eventOptions?: EventOptions) => Promise<Olympics | null>
   join: (inviteCode: string) => Promise<Olympics | null>
   start: () => Promise<boolean>
-  beginEvent: () => Promise<OlympicsEvent | null>
-  submitResult: (result: MatchResult) => Promise<boolean>
+  beginEvent: (eventId?: string) => Promise<OlympicsEvent | null>
+  submitResult: (result: MatchResult, eventId?: string) => Promise<boolean>
   refetch: () => void
 
   // Error
@@ -214,9 +214,12 @@ export function useOlympics(olympicsId?: string): UseOlympicsReturn {
 
   // Begin event mutation (assigns puzzle)
   const beginEventMutation = useMutation({
-    mutationFn: async () => {
-      if (!currentEvent) throw new Error('No current event')
-      const result = await startEvent(currentEvent.id)
+    mutationFn: async (eventId?: string) => {
+      // Use provided eventId, or fall back to currentEvent
+      const targetEventId = eventId || currentEvent?.id
+      if (!targetEventId) throw new Error('No event ID provided')
+      // Pass user ID for seen content tracking
+      const result = await startEvent(targetEventId, user?.id)
       if (result.error) throw result.error
       return result.event
     },
@@ -227,11 +230,13 @@ export function useOlympics(olympicsId?: string): UseOlympicsReturn {
 
   // Submit result mutation
   const submitResultMutation = useMutation({
-    mutationFn: async (result: MatchResult) => {
-      if (!currentEvent || !user) throw new Error('Missing event or user')
-      const submitResult = await submitEventResult(currentEvent.id, user.id, result)
-      if (submitResult.error) throw submitResult.error
-      return submitResult.success
+    mutationFn: async ({ result, eventId }: { result: MatchResult; eventId?: string }) => {
+      // Use provided eventId, or fall back to currentEvent
+      const targetEventId = eventId || currentEvent?.id
+      if (!targetEventId || !user) throw new Error('Missing event ID or user')
+      const submitRes = await submitEventResult(targetEventId, user.id, result)
+      if (submitRes.error) throw submitRes.error
+      return submitRes.success
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['eventResults'] })
@@ -258,13 +263,13 @@ export function useOlympics(olympicsId?: string): UseOlympicsReturn {
     return startMutation.mutateAsync()
   }, [startMutation])
 
-  const beginEvent = useCallback(async () => {
-    return beginEventMutation.mutateAsync()
+  const beginEvent = useCallback(async (eventId?: string) => {
+    return beginEventMutation.mutateAsync(eventId)
   }, [beginEventMutation])
 
   const submitResult = useCallback(
-    async (result: MatchResult) => {
-      return submitResultMutation.mutateAsync(result)
+    async (result: MatchResult, eventId?: string) => {
+      return submitResultMutation.mutateAsync({ result, eventId })
     },
     [submitResultMutation]
   )

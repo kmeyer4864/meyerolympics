@@ -14,6 +14,7 @@ interface PodiumRevealProps {
   goldWinnerId: string | null
   player1Id: string
   onContinue: () => void
+  isLastEvent?: boolean
   className?: string
 }
 
@@ -28,6 +29,7 @@ export default function PodiumReveal({
   goldWinnerId,
   player1Id,
   onContinue,
+  isLastEvent = false,
   className = '',
 }: PodiumRevealProps) {
   const [stage, setStage] = useState<RevealStage>('waiting')
@@ -155,9 +157,10 @@ export default function PodiumReveal({
 
           <button
             onClick={onContinue}
-            className="mt-8 px-8 py-3 bg-gold text-navy-950 font-semibold rounded-lg hover:bg-gold-400 transition-colors"
+            className="mt-8 w-full max-w-xs px-8 py-4 bg-gold text-navy-950 font-bold text-lg rounded-lg hover:bg-gold-400 transition-colors flex items-center justify-center gap-2 mx-auto"
           >
-            Continue
+            {isLastEvent ? 'View Final Results' : 'Continue to Next Event'}
+            <span className="text-xl">{isLastEvent ? '🏆' : '→'}</span>
           </button>
         </div>
       )}

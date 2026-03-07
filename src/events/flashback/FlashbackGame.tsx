@@ -87,12 +87,19 @@ export default function FlashbackGame({
   // Shuffle events once for this game instance (but keep them deterministic based on puzzleId)
   const shuffledOrder = useMemo(() => {
     if (!puzzle) return []
-    // Use a seeded shuffle based on puzzleId for consistency
     const indices = puzzle.events.map((_, i) => i)
-    // Simple deterministic shuffle - for async games both players get same order
+
+    // Seeded PRNG (Linear Congruential Generator) for deterministic shuffle
     const seed = puzzleId ? puzzleId.split('').reduce((a, c) => a + c.charCodeAt(0), 0) : 0
+    let rng = seed
+    const random = () => {
+      rng = (rng * 1103515245 + 12345) & 0x7fffffff
+      return rng / 0x7fffffff
+    }
+
+    // Fisher-Yates shuffle with seeded random
     for (let i = indices.length - 1; i > 0; i--) {
-      const j = (seed * (i + 1) + i) % (i + 1)
+      const j = Math.floor(random() * (i + 1))
       ;[indices[i], indices[j]] = [indices[j], indices[i]]
     }
     return indices

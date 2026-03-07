@@ -1,6 +1,7 @@
 import type { OlympicsEvent, MatchResult } from '../types'
 import FlashbackGame from './FlashbackGame'
-import { getRandomPuzzle } from './puzzleData'
+import { puzzles } from './puzzleData'
+import { selectUnseenRandom, markAsSeen } from '@/lib/seenContentTracker'
 
 export const flashbackEvent: OlympicsEvent = {
   id: 'flashback',
@@ -44,10 +45,22 @@ export const flashbackEvent: OlympicsEvent = {
     return `${strikes} strike${strikes !== 1 ? 's' : ''} (${minutes}:${seconds.toString().padStart(2, '0')})`
   },
 
-  generatePuzzleMetadata(_options?: Record<string, string>): Record<string, unknown> {
-    const puzzle = getRandomPuzzle()
+  generatePuzzleMetadata(options?: Record<string, string>): Record<string, unknown> {
+    const userId = options?.userId
+    const allPuzzleIds = puzzles.map(p => p.id)
+
+    // If we have a userId, use seen content tracking to avoid repeats
+    const selectedId = userId
+      ? selectUnseenRandom('flashback', userId, allPuzzleIds)
+      : allPuzzleIds[Math.floor(Math.random() * allPuzzleIds.length)]
+
+    // Mark as seen for this user
+    if (userId) {
+      markAsSeen('flashback', userId, selectedId)
+    }
+
     return {
-      puzzleId: puzzle.id,
+      puzzleId: selectedId,
     }
   },
 

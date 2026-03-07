@@ -1,6 +1,7 @@
 import type { OlympicsEvent, MatchResult } from '../types'
 import GeographyGame from './GeographyGame'
-import { getRandomLocationIds } from './locations'
+import { locations } from './locations'
+import { selectMultipleUnseenRandom, markAsSeen } from '@/lib/seenContentTracker'
 
 export const geographyEvent: OlympicsEvent = {
   id: 'geography',
@@ -44,8 +45,20 @@ export const geographyEvent: OlympicsEvent = {
     }
   },
 
-  generatePuzzleMetadata(_options?: Record<string, string>): Record<string, unknown> {
-    const locationIds = getRandomLocationIds(5)
+  generatePuzzleMetadata(options?: Record<string, string>): Record<string, unknown> {
+    const userId = options?.userId
+    const allLocationIds = locations.map(l => l.id)
+
+    // If we have a userId, use seen content tracking to avoid repeats
+    const locationIds = userId
+      ? selectMultipleUnseenRandom('geography', userId, allLocationIds, 5)
+      : [...allLocationIds].sort(() => Math.random() - 0.5).slice(0, 5)
+
+    // Mark all selected locations as seen for this user
+    if (userId) {
+      locationIds.forEach(id => markAsSeen('geography', userId, id))
+    }
+
     return {
       locationIds,
     }

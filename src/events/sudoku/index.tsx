@@ -26,9 +26,9 @@ export const sudokuEvent: OlympicsEvent = {
       optionId: 'difficulty',
       optionLabel: 'Difficulty',
       options: [
-        { id: 'easy', label: 'Easy', description: '35+ clues - great for beginners' },
-        { id: 'medium', label: 'Medium', description: '28-34 clues - balanced challenge' },
-        { id: 'hard', label: 'Hard', description: '22-27 clues - for experts' },
+        { id: 'easy', label: 'Easy', description: '45 clues - great for beginners' },
+        { id: 'medium', label: 'Medium', description: '40 clues - balanced challenge' },
+        { id: 'hard', label: 'Hard', description: '35 clues - for experts' },
       ],
       defaultValue: 'medium',
     },

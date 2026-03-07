@@ -43,7 +43,8 @@ export default function EventIntro() {
   const event = getEvent(dbEvent.event_type)
 
   const handleStart = async () => {
-    await beginEvent()
+    // Pass the specific event ID from URL param, not relying on current_event_index
+    await beginEvent(dbEvent.id)
     navigate(`/olympics/${id}/event/${eventIndex}/play`)
   }
 

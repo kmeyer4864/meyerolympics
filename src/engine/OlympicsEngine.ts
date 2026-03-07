@@ -119,7 +119,8 @@ export async function startOlympics(
 
 // Start an event (assign puzzle metadata)
 export async function startEvent(
-  olympicsEventId: string
+  olympicsEventId: string,
+  userId?: string
 ): Promise<{ event: DBOlympicsEvent | null; error: Error | null }> {
   // Get the event
   const { data: event, error: fetchError } = await supabase
@@ -143,9 +144,12 @@ export async function startEvent(
   }
 
   const eventDef = getEvent(event.event_type)
-  // Pass event config (e.g., difficulty) to puzzle generation
+  // Pass event config (e.g., difficulty) and userId to puzzle generation
   const eventConfig = (event.config as Record<string, string>) || {}
-  const puzzleMetadata = eventDef.generatePuzzleMetadata(eventConfig)
+  const puzzleMetadata = eventDef.generatePuzzleMetadata({
+    ...eventConfig,
+    ...(userId ? { userId } : {}),
+  })
 
   // Update the event with metadata and start time
   const { data: updatedEvent, error: updateError } = await supabase

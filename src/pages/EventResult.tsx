@@ -1,5 +1,7 @@
 import { useParams, Navigate, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useOlympics } from '@/engine/useOlympics'
+import { getEventResults } from '@/engine/OlympicsEngine'
 import { useAppStore } from '@/store/useAppStore'
 import { isValidEventType, getEvent } from '@/events/registry'
 import type { EventType, MatchResult } from '@/events/types'
@@ -12,13 +14,26 @@ export default function EventResult() {
   const {
     olympics,
     events,
-    currentEventResults,
     player1Profile,
     player2Profile,
     isLoading,
   } = useOlympics(id)
 
   const eventIndex = parseInt(idx ?? '0', 10)
+
+  // Get the event from the URL index (NOT current_event_index)
+  const dbEvent = events?.find((e) => e.event_index === eventIndex)
+
+  // Query results specifically for THIS event by its ID
+  const { data: thisEventResults } = useQuery({
+    queryKey: ['eventResults', dbEvent?.id],
+    queryFn: async () => {
+      if (!dbEvent?.id) return null
+      const { results } = await getEventResults(dbEvent.id)
+      return results
+    },
+    enabled: !!dbEvent?.id,
+  })
 
   if (!user) {
     return <Navigate to="/auth" replace />
@@ -36,7 +51,6 @@ export default function EventResult() {
     return <Navigate to="/" replace />
   }
 
-  const dbEvent = events.find((e) => e.event_index === eventIndex)
   if (!dbEvent || !isValidEventType(dbEvent.event_type)) {
     return <Navigate to={`/olympics/${id}/summary`} replace />
   }
@@ -44,15 +58,16 @@ export default function EventResult() {
   const isAsync = olympics.mode === 'async'
   const hasPlayer2 = !!olympics.player2_id
   const isPlayer1 = user.id === olympics.player1_id
+  const isLastEvent = eventIndex + 1 >= olympics.event_sequence.length
 
-  // Check if both results are in
-  const bothComplete = currentEventResults?.length === 2
+  // Check if both results are in for THIS event
+  const bothComplete = dbEvent.status === 'complete' || thisEventResults?.length === 2
 
-  // Get results
-  const p1Result = currentEventResults?.find(
+  // Get results for THIS event
+  const p1Result = thisEventResults?.find(
     (r) => r.player_id === olympics.player1_id
   )
-  const p2Result = currentEventResults?.find(
+  const p2Result = thisEventResults?.find(
     (r) => r.player_id === olympics.player2_id
   )
 
@@ -60,11 +75,10 @@ export default function EventResult() {
   const canContinueSolo = isAsync && !hasPlayer2 && isPlayer1 && p1Result
 
   const handleContinue = () => {
-    const nextIndex = eventIndex + 1
-    if (nextIndex >= olympics.event_sequence.length) {
+    if (isLastEvent) {
       navigate(`/olympics/${id}/summary`)
     } else {
-      navigate(`/olympics/${id}/event/${nextIndex}/intro`)
+      navigate(`/olympics/${id}/event/${eventIndex + 1}/intro`)
     }
   }
 
@@ -91,15 +105,16 @@ export default function EventResult() {
             {formattedScore}
           </p>
           <p className="text-gray-400 mb-8">
-            {eventIndex + 1 < olympics.event_sequence.length
+            {!isLastEvent
               ? 'Continue to the next event!'
               : 'You\'ve completed all events!'}
           </p>
           <button
             onClick={handleContinue}
-            className="px-8 py-4 bg-gold text-navy-950 font-bold text-lg rounded-lg hover:bg-gold-400 transition-colors"
+            className="w-full px-8 py-4 bg-gold text-navy-950 font-bold text-lg rounded-lg hover:bg-gold-400 transition-colors flex items-center justify-center gap-2"
           >
-            {eventIndex + 1 < olympics.event_sequence.length ? 'Next Event' : 'See Results'}
+            {!isLastEvent ? 'Next Event' : 'View Final Results'}
+            <span className="text-xl">{!isLastEvent ? '→' : '🏆'}</span>
           </button>
         </div>
       </div>
@@ -155,6 +170,7 @@ export default function EventResult() {
         goldWinnerId={dbEvent.gold_winner_id}
         player1Id={olympics.player1_id}
         onContinue={handleContinue}
+        isLastEvent={isLastEvent}
       />
     </div>
   )
