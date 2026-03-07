@@ -39,7 +39,7 @@ export const holdemEvent: OlympicsEvent = {
     return `${Math.round(result.rawValue)} chips`
   },
 
-  generatePuzzleMetadata(): Record<string, unknown> {
+  generatePuzzleMetadata(_options?: Record<string, string>): Record<string, unknown> {
     // Generate a seed for the deck shuffles
     const deckSeed = Math.floor(Math.random() * 1000000)
     return {

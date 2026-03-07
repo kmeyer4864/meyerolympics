@@ -44,7 +44,7 @@ export const geographyEvent: OlympicsEvent = {
     }
   },
 
-  generatePuzzleMetadata(): Record<string, unknown> {
+  generatePuzzleMetadata(_options?: Record<string, string>): Record<string, unknown> {
     const locationIds = getRandomLocationIds(5)
     return {
       locationIds,

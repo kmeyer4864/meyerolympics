@@ -8,7 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "import:locations": "npx tsx scripts/import-content.ts locations",
+    "import:puzzles": "npx tsx scripts/import-content.ts puzzles",
+    "import:all": "npx tsx scripts/import-content.ts all"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

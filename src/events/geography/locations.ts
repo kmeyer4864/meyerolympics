@@ -1,3 +1,5 @@
+import { supabase } from '../../lib/supabase'
+
 export interface Location {
   id: string
   name: string
@@ -6,6 +8,11 @@ export interface Location {
   lng: number
   difficulty: 'easy' | 'medium' | 'hard'
 }
+
+// Cache for fetched locations
+let cachedLocations: Location[] | null = null
+let cacheTimestamp: number = 0
+const CACHE_DURATION_MS = 5 * 60 * 1000 // 5 minutes
 
 export const locations: Location[] = [
   // Easy - Famous Landmarks
@@ -118,4 +125,82 @@ export function formatDistance(km: number): string {
   } else {
     return `${Math.round(km).toLocaleString()} km`
   }
+}
+
+/**
+ * Fetch locations from Supabase with fallback to hardcoded data.
+ * Results are cached for 5 minutes to reduce database calls.
+ */
+export async function fetchLocations(): Promise<Location[]> {
+  const now = Date.now()
+
+  // Return cached data if still valid
+  if (cachedLocations && (now - cacheTimestamp) < CACHE_DURATION_MS) {
+    return cachedLocations
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('game_locations')
+      .select('id, name, clue, lat, lng, difficulty')
+      .eq('enabled', true)
+
+    if (error) {
+      console.error('Error fetching locations from Supabase:', error)
+      return locations // Fall back to hardcoded
+    }
+
+    if (data && data.length > 0) {
+      // Convert database response to Location type
+      cachedLocations = data.map(loc => ({
+        id: loc.id,
+        name: loc.name,
+        clue: loc.clue,
+        lat: Number(loc.lat),
+        lng: Number(loc.lng),
+        difficulty: loc.difficulty as 'easy' | 'medium' | 'hard',
+      }))
+      cacheTimestamp = now
+      return cachedLocations
+    }
+
+    // No data in database, use hardcoded
+    return locations
+  } catch (err) {
+    console.error('Failed to fetch locations:', err)
+    return locations // Fall back to hardcoded
+  }
+}
+
+/**
+ * Get all locations - combines database and hardcoded content.
+ * Prefers database content when available.
+ */
+export async function getAllLocations(): Promise<Location[]> {
+  const dbLocations = await fetchLocations()
+
+  // If we got locations from DB, use those (they may be the same as hardcoded)
+  if (dbLocations !== locations) {
+    return dbLocations
+  }
+
+  // Fall back to hardcoded
+  return locations
+}
+
+/**
+ * Get random locations - async version that fetches from DB first.
+ */
+export async function getRandomLocationsAsync(count: number): Promise<Location[]> {
+  const allLocations = await getAllLocations()
+  const shuffled = [...allLocations].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, count)
+}
+
+/**
+ * Clear the location cache (useful for testing or after imports).
+ */
+export function clearLocationCache(): void {
+  cachedLocations = null
+  cacheTimestamp = 0
 }

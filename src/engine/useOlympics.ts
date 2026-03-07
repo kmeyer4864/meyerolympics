@@ -16,7 +16,7 @@ import {
   getOlympicsWithDetails,
   getEventResults,
 } from './OlympicsEngine'
-import type { MatchResult, EventType } from '@/events/types'
+import type { MatchResult, EventType, EventOptions } from '@/events/types'
 import { useAppStore } from '@/store/useAppStore'
 
 interface UseOlympicsReturn {
@@ -36,7 +36,7 @@ interface UseOlympicsReturn {
   isSubmitting: boolean
 
   // Actions
-  create: (eventSequence: EventType[], mode?: 'async' | 'realtime') => Promise<Olympics | null>
+  create: (eventSequence: EventType[], mode?: 'async' | 'realtime', eventOptions?: EventOptions) => Promise<Olympics | null>
   join: (inviteCode: string) => Promise<Olympics | null>
   start: () => Promise<boolean>
   beginEvent: () => Promise<OlympicsEvent | null>
@@ -165,14 +165,16 @@ export function useOlympics(olympicsId?: string): UseOlympicsReturn {
     mutationFn: async ({
       eventSequence,
       mode,
+      eventOptions,
     }: {
       eventSequence: EventType[]
       mode: 'async' | 'realtime'
+      eventOptions?: EventOptions
     }) => {
       console.log('createMutation called, user:', user)
       if (!user) throw new Error('Must be logged in')
-      console.log('Calling createOlympics with:', user.id, eventSequence, mode)
-      const result = await createOlympics(user.id, eventSequence, mode)
+      console.log('Calling createOlympics with:', user.id, eventSequence, mode, eventOptions)
+      const result = await createOlympics(user.id, eventSequence, mode, eventOptions)
       console.log('createOlympics result:', result)
       if (result.error) throw result.error
       return result.olympics
@@ -239,8 +241,8 @@ export function useOlympics(olympicsId?: string): UseOlympicsReturn {
 
   // Action wrappers
   const create = useCallback(
-    async (eventSequence: EventType[], mode: 'async' | 'realtime' = 'async') => {
-      return createMutation.mutateAsync({ eventSequence, mode })
+    async (eventSequence: EventType[], mode: 'async' | 'realtime' = 'async', eventOptions?: EventOptions) => {
+      return createMutation.mutateAsync({ eventSequence, mode, eventOptions })
     },
     [createMutation]
   )

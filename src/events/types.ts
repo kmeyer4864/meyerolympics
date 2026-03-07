@@ -21,6 +21,23 @@ export interface EventComponentProps {
   isRealtime?: boolean
 }
 
+// Event configuration options (e.g., difficulty)
+export interface EventOption {
+  id: string
+  label: string
+  description?: string
+}
+
+export interface EventConfig {
+  optionId: string        // e.g., 'difficulty'
+  optionLabel: string     // e.g., 'Difficulty'
+  options: EventOption[]  // e.g., [{id: 'easy', label: 'Easy'}, ...]
+  defaultValue: string    // e.g., 'medium'
+}
+
+// Event options selected by user during setup
+export type EventOptions = Record<EventType, Record<string, string>>
+
 export interface OlympicsEvent {
   id: EventType
   name: string
@@ -32,12 +49,15 @@ export interface OlympicsEvent {
   winCondition: WinCondition
   rules: string[]          // bullet points shown on event intro card
 
+  // Optional configurable options for this event (e.g., difficulty)
+  configOptions?: EventConfig[]
+
   // Core scoring methods
   compareResults(r1: MatchResult, r2: MatchResult): 'p1' | 'p2' | 'tie'
   formatScore(result: MatchResult): string // human-readable: "4:23", "847 pts"
 
-  // Generate puzzle metadata when event starts
-  generatePuzzleMetadata(): Record<string, unknown>
+  // Generate puzzle metadata when event starts (receives user-selected options)
+  generatePuzzleMetadata(options?: Record<string, string>): Record<string, unknown>
 
   // The React component that runs the actual game
   Component: FC<EventComponentProps>

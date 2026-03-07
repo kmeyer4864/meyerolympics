@@ -20,6 +20,20 @@ export const sudokuEvent: OlympicsEvent = {
     'Both players receive the same puzzle',
   ],
 
+  // Difficulty selection
+  configOptions: [
+    {
+      optionId: 'difficulty',
+      optionLabel: 'Difficulty',
+      options: [
+        { id: 'easy', label: 'Easy', description: '35+ clues - great for beginners' },
+        { id: 'medium', label: 'Medium', description: '28-34 clues - balanced challenge' },
+        { id: 'hard', label: 'Hard', description: '22-27 clues - for experts' },
+      ],
+      defaultValue: 'medium',
+    },
+  ],
+
   compareResults(r1: MatchResult, r2: MatchResult): 'p1' | 'p2' | 'tie' {
     // For fastest_time, lower rawValue (time in ms) is better
     if (r1.rawValue < r2.rawValue) return 'p1'
@@ -35,9 +49,8 @@ export const sudokuEvent: OlympicsEvent = {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   },
 
-  generatePuzzleMetadata(): Record<string, unknown> {
-    // Default to medium difficulty, but could be configurable
-    const difficulty: Difficulty = 'medium'
+  generatePuzzleMetadata(options?: Record<string, string>): Record<string, unknown> {
+    const difficulty: Difficulty = (options?.difficulty as Difficulty) || 'medium'
     const puzzle = getRandomPuzzle(difficulty)
     return {
       puzzleId: puzzle.id,

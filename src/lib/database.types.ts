@@ -105,6 +105,7 @@ export interface Database {
           event_type: string
           status: 'pending' | 'p1_active' | 'p2_active' | 'p1_complete' | 'p2_complete' | 'complete'
           gold_winner_id: string | null
+          config: Json  // Event configuration (e.g., difficulty)
           metadata: Json
           started_at: string | null
           created_at: string
@@ -116,6 +117,7 @@ export interface Database {
           event_type: string
           status?: 'pending' | 'p1_active' | 'p2_active' | 'p1_complete' | 'p2_complete' | 'complete'
           gold_winner_id?: string | null
+          config?: Json
           metadata?: Json
           started_at?: string | null
           created_at?: string
@@ -127,6 +129,7 @@ export interface Database {
           event_type?: string
           status?: 'pending' | 'p1_active' | 'p2_active' | 'p1_complete' | 'p2_complete' | 'complete'
           gold_winner_id?: string | null
+          config?: Json
           metadata?: Json
           started_at?: string | null
           created_at?: string

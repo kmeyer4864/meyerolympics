@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import type { Olympics, OlympicsEvent as DBOlympicsEvent, EventResult } from '@/lib/database.types'
 import { getEvent, isValidEventType } from '@/events/registry'
-import type { MatchResult, EventType } from '@/events/types'
+import type { MatchResult, EventType, EventOptions } from '@/events/types'
 
 // Generate a human-readable invite code (8 alphanumeric chars, no confusing characters)
 export function generateInviteCode(): string {
@@ -23,7 +23,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 export async function createOlympics(
   player1Id: string,
   eventSequence: EventType[],
-  mode: 'async' | 'realtime' = 'async'
+  mode: 'async' | 'realtime' = 'async',
+  eventOptions?: EventOptions
 ): Promise<{ olympics: Olympics | null; error: Error | null }> {
   const inviteCode = generateInviteCode()
   console.log('createOlympics: inserting with', { inviteCode, player1Id, eventSequence, mode })
@@ -59,6 +60,8 @@ export async function createOlympics(
     event_index: index,
     event_type: eventType,
     status: 'pending' as const,
+    // Store event options (e.g., difficulty) in config field
+    config: eventOptions?.[eventType] || {},
   }))
 
   const { error: eventsError } = await supabase
@@ -159,7 +162,9 @@ export async function startEvent(
   }
 
   const eventDef = getEvent(event.event_type)
-  const puzzleMetadata = eventDef.generatePuzzleMetadata()
+  // Pass event config (e.g., difficulty) to puzzle generation
+  const eventConfig = (event.config as Record<string, string>) || {}
+  const puzzleMetadata = eventDef.generatePuzzleMetadata(eventConfig)
 
   // Update the event with metadata and start time
   const { data: updatedEvent, error: updateError } = await supabase

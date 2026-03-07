@@ -1,0 +1,28 @@
+{
+  "_comment": "Template for flashback timeline puzzles. Use this format when generating new puzzles.",
+  "_llm_prompt": "Generate a timeline puzzle with exactly 9 historical events about [THEME]. For each event provide: id (unique identifier like e1, e2, etc.), description (what happened in past tense, no year mentioned), year (the year it occurred, negative for BCE). Events should span a range of years to make ordering challenging. Output as JSON.",
+  "example": {
+    "id": "puzzle-ancient-world",
+    "theme": "Ancient World",
+    "events": [
+      { "id": "e1", "description": "Construction of the Great Pyramid begins", "year": -2560 },
+      { "id": "e2", "description": "Rome is founded", "year": -753 },
+      { "id": "e3", "description": "The first Olympic Games are held", "year": -776 },
+      { "id": "e4", "description": "Alexander the Great dies", "year": -323 },
+      { "id": "e5", "description": "Julius Caesar is assassinated", "year": -44 },
+      { "id": "e6", "description": "Construction of the Colosseum begins", "year": 72 },
+      { "id": "e7", "description": "The fall of the Western Roman Empire", "year": 476 },
+      { "id": "e8", "description": "The Library of Alexandria is destroyed", "year": -48 },
+      { "id": "e9", "description": "Cleopatra becomes Queen of Egypt", "year": -51 }
+    ]
+  },
+  "schema": {
+    "id": "string (required, unique puzzle identifier)",
+    "theme": "string (required, descriptive theme name)",
+    "events": "array (required, exactly 9 events)",
+    "events[].id": "string (required, unique within puzzle, e.g., 'e1')",
+    "events[].description": "string (required, past tense, no year mentioned)",
+    "events[].year": "number (required, negative for BCE)",
+    "enabled": "boolean (optional, defaults to true)"
+  }
+}

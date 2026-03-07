@@ -1,0 +1,21 @@
+{
+  "_comment": "Template for geography locations. Use this format when generating new locations.",
+  "_llm_prompt": "Generate 20 geography locations for a guessing game. For each location provide: id (unique kebab-case identifier), name (the place name), clue (a hint without giving away the location - no country/city names), lat (latitude in decimal degrees), lng (longitude in decimal degrees), difficulty ('easy' for famous landmarks, 'medium' for notable places, 'hard' for obscure). Output as JSON array.",
+  "example": {
+    "id": "eiffel-tower",
+    "name": "Eiffel Tower",
+    "clue": "Famous iron lattice tower built for a world's fair",
+    "lat": 48.8584,
+    "lng": 2.2945,
+    "difficulty": "easy"
+  },
+  "schema": {
+    "id": "string (required, unique kebab-case identifier)",
+    "name": "string (required, the actual place name)",
+    "clue": "string (required, hint without revealing location)",
+    "lat": "number (required, -90 to 90)",
+    "lng": "number (required, -180 to 180)",
+    "difficulty": "string (required, 'easy' | 'medium' | 'hard')",
+    "enabled": "boolean (optional, defaults to true)"
+  }
+}

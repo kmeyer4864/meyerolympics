@@ -39,7 +39,7 @@ export const cribbageEvent: OlympicsEvent = {
     return `${Math.round(result.rawValue)} pts`
   },
 
-  generatePuzzleMetadata(): Record<string, unknown> {
+  generatePuzzleMetadata(_options?: Record<string, string>): Record<string, unknown> {
     // Generate a seed for card shuffles
     const deckSeed = Math.floor(Math.random() * 1000000)
     return {

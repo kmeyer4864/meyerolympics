@@ -44,7 +44,7 @@ export const flashbackEvent: OlympicsEvent = {
     return `${strikes} strike${strikes !== 1 ? 's' : ''} (${minutes}:${seconds.toString().padStart(2, '0')})`
   },
 
-  generatePuzzleMetadata(): Record<string, unknown> {
+  generatePuzzleMetadata(_options?: Record<string, string>): Record<string, unknown> {
     const puzzle = getRandomPuzzle()
     return {
       puzzleId: puzzle.id,

@@ -1,0 +1,77 @@
+[
+  {
+    "id": "puzzle-ancient-world",
+    "theme": "Ancient World",
+    "events": [
+      {"id": "e1", "description": "The Great Pyramid of Giza was completed", "year": -2560},
+      {"id": "e2", "description": "The Code of Hammurabi was written in Babylon", "year": -1754},
+      {"id": "e3", "description": "The city of Carthage was founded by Phoenician settlers", "year": -814},
+      {"id": "e4", "description": "The first Olympic Games were held in Greece", "year": -776},
+      {"id": "e5", "description": "The Persian Wars began with the Ionian Revolt", "year": -499},
+      {"id": "e6", "description": "Alexander the Great conquered the Persian Empire", "year": -330},
+      {"id": "e7", "description": "Julius Caesar was assassinated in the Roman Senate", "year": -44},
+      {"id": "e8", "description": "The Roman Colosseum was completed and opened", "year": 80},
+      {"id": "e9", "description": "The Western Roman Empire fell to Germanic invaders", "year": 476}
+    ]
+  },
+  {
+    "id": "puzzle-medieval-history",
+    "theme": "Medieval History",
+    "events": [
+      {"id": "e1", "description": "The Prophet Muhammad began receiving revelations, founding Islam", "year": 610},
+      {"id": "e2", "description": "Charlemagne was crowned Emperor of the Romans by the Pope", "year": 800},
+      {"id": "e3", "description": "Viking explorer Leif Erikson reached North America", "year": 1000},
+      {"id": "e4", "description": "The First Crusade was launched to recapture Jerusalem", "year": 1096},
+      {"id": "e5", "description": "King John of England signed the Magna Carta", "year": 1215},
+      {"id": "e6", "description": "The Black Death arrived in Europe via Sicilian ports", "year": 1347},
+      {"id": "e7", "description": "Joan of Arc led French forces to victory at Orléans", "year": 1429},
+      {"id": "e8", "description": "Constantinople fell to the Ottoman Empire under Mehmed II", "year": 1453},
+      {"id": "e9", "description": "Johannes Gutenberg printed the first Bible using movable type", "year": 1455}
+    ]
+  },
+  {
+    "id": "puzzle-scientific-breakthroughs",
+    "theme": "Scientific Breakthroughs",
+    "events": [
+      {"id": "e1", "description": "Nicolaus Copernicus published his heliocentric model of the solar system", "year": 1543},
+      {"id": "e2", "description": "Isaac Newton published his laws of motion and universal gravitation", "year": 1687},
+      {"id": "e3", "description": "Edward Jenner introduced the first successful smallpox vaccine", "year": 1796},
+      {"id": "e4", "description": "Charles Darwin published On the Origin of Species", "year": 1859},
+      {"id": "e5", "description": "Marie Curie became the first person to win two Nobel Prizes", "year": 1911},
+      {"id": "e6", "description": "Albert Einstein published his general theory of relativity", "year": 1915},
+      {"id": "e7", "description": "Alexander Fleming discovered penicillin in his laboratory", "year": 1928},
+      {"id": "e8", "description": "Watson and Crick described the double helix structure of DNA", "year": 1953},
+      {"id": "e9", "description": "The first successful cloning of a mammal, Dolly the sheep, was announced", "year": 1997}
+    ]
+  },
+  {
+    "id": "puzzle-cold-war",
+    "theme": "Cold War Era",
+    "events": [
+      {"id": "e1", "description": "The United States dropped atomic bombs on Hiroshima and Nagasaki", "year": 1945},
+      {"id": "e2", "description": "NATO was founded as a collective defense alliance in the West", "year": 1949},
+      {"id": "e3", "description": "The Korean War began when North Korea invaded South Korea", "year": 1950},
+      {"id": "e4", "description": "Sputnik 1 became the first artificial satellite launched into orbit", "year": 1957},
+      {"id": "e5", "description": "The Berlin Wall was constructed dividing East and West Germany", "year": 1961},
+      {"id": "e6", "description": "The Cuban Missile Crisis brought the world to the brink of nuclear war", "year": 1962},
+      {"id": "e7", "description": "Neil Armstrong became the first human to walk on the Moon", "year": 1969},
+      {"id": "e8", "description": "The Berlin Wall fell, symbolizing the end of the Cold War", "year": 1989},
+      {"id": "e9", "description": "The Soviet Union formally dissolved into fifteen independent republics", "year": 1991}
+    ]
+  },
+  {
+    "id": "puzzle-inventions",
+    "theme": "Inventions That Changed the World",
+    "events": [
+      {"id": "e1", "description": "James Watt patented an improved steam engine, powering the Industrial Revolution", "year": 1769},
+      {"id": "e2", "description": "Samuel Morse sent the first long-distance telegraph message", "year": 1844},
+      {"id": "e3", "description": "Alexander Graham Bell made the first successful telephone call", "year": 1876},
+      {"id": "e4", "description": "Thomas Edison demonstrated his practical incandescent light bulb", "year": 1879},
+      {"id": "e5", "description": "The Wright Brothers achieved the first powered airplane flight at Kitty Hawk", "year": 1903},
+      {"id": "e6", "description": "John Logie Baird gave the first public demonstration of television", "year": 1926},
+      {"id": "e7", "description": "The first general-purpose electronic computer, ENIAC, was unveiled", "year": 1945},
+      {"id": "e8", "description": "Tim Berners-Lee invented the World Wide Web at CERN", "year": 1989},
+      {"id": "e9", "description": "Apple released the first iPhone, transforming mobile communication", "year": 2007}
+    ]
+  }
+]

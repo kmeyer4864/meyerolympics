@@ -1,0 +1,202 @@
+[
+  {
+    "id": "eiffel-tower",
+    "name": "Eiffel Tower",
+    "clue": "An iron lattice giant built as a temporary exhibit in 1889, it was almost torn down but saved by becoming a radio transmission tower.",
+    "lat": 48.8584,
+    "lng": 2.2945,
+    "difficulty": "easy"
+  },
+  {
+    "id": "great-wall-of-china",
+    "name": "Great Wall of China",
+    "clue": "Stretching over 13,000 miles, this ancient fortification was built to keep out northern nomadic invaders and took centuries to complete.",
+    "lat": 40.4319,
+    "lng": 116.5704,
+    "difficulty": "easy"
+  },
+  {
+    "id": "machu-picchu",
+    "name": "Machu Picchu",
+    "clue": "Perched 2,430 meters above sea level in the Andes, this 15th-century citadel was unknown to the outside world until 1911.",
+    "lat": -13.1631,
+    "lng": -72.5450,
+    "difficulty": "easy"
+  },
+  {
+    "id": "mount-everest",
+    "name": "Mount Everest",
+    "clue": "The highest point on Earth above sea level, it sits on a border between two nations and was first summited in 1953.",
+    "lat": 27.9881,
+    "lng": 86.9250,
+    "difficulty": "easy"
+  },
+  {
+    "id": "colosseum",
+    "name": "Colosseum",
+    "clue": "This 2,000-year-old elliptical amphitheatre once hosted gladiatorial contests and could seat up to 80,000 spectators.",
+    "lat": 41.8902,
+    "lng": 12.4922,
+    "difficulty": "easy"
+  },
+  {
+    "id": "statue-of-liberty",
+    "name": "Statue of Liberty",
+    "clue": "A gift from France dedicated in 1886, this copper lady holding a torch stands on a small island in a famous harbor.",
+    "lat": 40.6892,
+    "lng": -74.0445,
+    "difficulty": "easy"
+  },
+  {
+    "id": "sydney-opera-house",
+    "name": "Sydney Opera House",
+    "clue": "Its distinctive shell-shaped roof was inspired by orange segments, and it took 14 years to build on a harbor promontory.",
+    "lat": -33.8568,
+    "lng": 151.2153,
+    "difficulty": "easy"
+  },
+  {
+    "id": "sahara-desert",
+    "name": "Sahara Desert",
+    "clue": "The world's largest hot desert spans 11 countries and was once a lush savanna just 6,000 years ago.",
+    "lat": 23.4162,
+    "lng": 25.6628,
+    "difficulty": "easy"
+  },
+  {
+    "id": "angkor-wat",
+    "name": "Angkor Wat",
+    "clue": "The world's largest religious monument was built in the 12th century and appears on its nation's flag.",
+    "lat": 13.4125,
+    "lng": 103.8670,
+    "difficulty": "medium"
+  },
+  {
+    "id": "victoria-falls",
+    "name": "Victoria Falls",
+    "clue": "Known locally as 'The Smoke That Thunders,' this waterfall is twice as wide and tall as Niagara and sits on a border between two African nations.",
+    "lat": -17.9243,
+    "lng": 25.8572,
+    "difficulty": "medium"
+  },
+  {
+    "id": "petra",
+    "name": "Petra",
+    "clue": "An ancient city carved entirely into rose-red sandstone cliffs, it was the capital of a Nabataean kingdom and lost to the Western world for centuries.",
+    "lat": 30.3285,
+    "lng": 35.4444,
+    "difficulty": "medium"
+  },
+  {
+    "id": "bora-bora",
+    "name": "Bora Bora",
+    "clue": "A dormant volcanic island surrounded by a turquoise lagoon and coral reef in the South Pacific, it served as a US military base in WWII.",
+    "lat": -16.5004,
+    "lng": -151.7415,
+    "difficulty": "medium"
+  },
+  {
+    "id": "amazon-river-mouth",
+    "name": "Amazon River Delta",
+    "clue": "The mouth of the world's largest river by discharge empties into the Atlantic Ocean and releases so much freshwater it can be detected 100 miles offshore.",
+    "lat": -0.1667,
+    "lng": -50.0000,
+    "difficulty": "medium"
+  },
+  {
+    "id": "serengeti",
+    "name": "Serengeti National Park",
+    "clue": "Every year, over 1.5 million wildebeest migrate in a circular pattern across this vast East African ecosystem in what is called the Greatest Show on Earth.",
+    "lat": -2.3333,
+    "lng": 34.8333,
+    "difficulty": "medium"
+  },
+  {
+    "id": "iceland-geysers",
+    "name": "Geysir, Iceland",
+    "clue": "This geothermal field gave its name to all erupting hot springs worldwide. The island it sits on straddles two tectonic plates.",
+    "lat": 64.3108,
+    "lng": -20.3021,
+    "difficulty": "medium"
+  },
+  {
+    "id": "cappadocia",
+    "name": "Cappadocia",
+    "clue": "Famous for its fairy chimneys, underground cities, and hot air balloon rides at sunrise over a surreal volcanic landscape.",
+    "lat": 38.6431,
+    "lng": 34.8289,
+    "difficulty": "medium"
+  },
+  {
+    "id": "bagan",
+    "name": "Bagan",
+    "clue": "A plain dotted with over 2,000 ancient Buddhist temples and pagodas, built between the 9th and 13th centuries in Southeast Asia.",
+    "lat": 21.1717,
+    "lng": 94.8585,
+    "difficulty": "medium"
+  },
+  {
+    "id": "patagonia-torres",
+    "name": "Torres del Paine",
+    "clue": "Three iconic granite towers rise dramatically from a windswept plateau at the southern tip of South America, a trekker's paradise.",
+    "lat": -50.9423,
+    "lng": -73.4068,
+    "difficulty": "medium"
+  },
+  {
+    "id": "dead-sea",
+    "name": "Dead Sea",
+    "clue": "The lowest point on Earth's surface, its extreme salinity means nothing lives in it and every swimmer floats effortlessly.",
+    "lat": 31.5590,
+    "lng": 35.4732,
+    "difficulty": "medium"
+  },
+  {
+    "id": "socotra-island",
+    "name": "Socotra Island",
+    "clue": "Called the 'Galápagos of the Indian Ocean,' this remote archipelago is home to the alien-looking Dragon Blood Tree found nowhere else on Earth.",
+    "lat": 12.4634,
+    "lng": 53.8237,
+    "difficulty": "hard"
+  },
+  {
+    "id": "lake-baikal",
+    "name": "Lake Baikal",
+    "clue": "The world's deepest lake holds 20% of all unfrozen surface freshwater on Earth and is home to the world's only freshwater seal species.",
+    "lat": 53.5587,
+    "lng": 108.1650,
+    "difficulty": "hard"
+  },
+  {
+    "id": "salar-de-uyuni",
+    "name": "Salar de Uyuni",
+    "clue": "The world's largest salt flat sits at 3,656 meters elevation and becomes a giant mirror reflecting the sky after rainfall, used to calibrate satellites.",
+    "lat": -20.1338,
+    "lng": -67.4891,
+    "difficulty": "hard"
+  },
+  {
+    "id": "tsingy-de-bemaraha",
+    "name": "Tsingy de Bemaraha",
+    "clue": "A UNESCO World Heritage Site of razor-sharp limestone pinnacles rising from a plateau on the world's fourth-largest island, inaccessible for much of the year.",
+    "lat": -18.7700,
+    "lng": 44.7950,
+    "difficulty": "hard"
+  },
+  {
+    "id": "ellesmere-island",
+    "name": "Ellesmere Island",
+    "clue": "The world's tenth-largest island sits in the high Arctic, home to ancient ice shelves, musk oxen, and a lake with a permanently frozen surface.",
+    "lat": 79.9000,
+    "lng": -85.0000,
+    "difficulty": "hard"
+  },
+  {
+    "id": "dallol-ethiopia",
+    "name": "Dallol, Ethiopia",
+    "clue": "The hottest year-round inhabited place on Earth sits below sea level in a volcanic depression, featuring alien acid ponds of yellow, green, and red.",
+    "lat": 14.2417,
+    "lng": 40.2960,
+    "difficulty": "hard"
+  }
+]

@@ -1,3 +1,5 @@
+import { supabase } from '../../lib/supabase'
+
 export interface TimelineEvent {
   id: string
   description: string
@@ -9,6 +11,11 @@ export interface FlashbackPuzzle {
   theme: string
   events: TimelineEvent[] // Exactly 9 events (1 starter + 8 to place)
 }
+
+// Cache for fetched puzzles
+let cachedPuzzles: FlashbackPuzzle[] | null = null
+let cacheTimestamp: number = 0
+const CACHE_DURATION_MS = 5 * 60 * 1000 // 5 minutes
 
 // 10 pre-built puzzle sets
 export const puzzles: FlashbackPuzzle[] = [
@@ -175,4 +182,95 @@ export function getRandomPuzzle(): FlashbackPuzzle {
 
 export function getPuzzleByIndex(index: number): FlashbackPuzzle {
   return puzzles[index % puzzles.length]
+}
+
+/**
+ * Fetch puzzles from Supabase with fallback to hardcoded data.
+ * Results are cached for 5 minutes to reduce database calls.
+ */
+export async function fetchPuzzles(): Promise<FlashbackPuzzle[]> {
+  const now = Date.now()
+
+  // Return cached data if still valid
+  if (cachedPuzzles && (now - cacheTimestamp) < CACHE_DURATION_MS) {
+    return cachedPuzzles
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('game_puzzles')
+      .select('id, theme, events')
+      .eq('enabled', true)
+
+    if (error) {
+      console.error('Error fetching puzzles from Supabase:', error)
+      return puzzles // Fall back to hardcoded
+    }
+
+    if (data && data.length > 0) {
+      // Convert database response to FlashbackPuzzle type
+      cachedPuzzles = data.map(puzzle => ({
+        id: puzzle.id,
+        theme: puzzle.theme,
+        events: puzzle.events as TimelineEvent[],
+      }))
+      cacheTimestamp = now
+      return cachedPuzzles
+    }
+
+    // No data in database, use hardcoded
+    return puzzles
+  } catch (err) {
+    console.error('Failed to fetch puzzles:', err)
+    return puzzles // Fall back to hardcoded
+  }
+}
+
+/**
+ * Get all puzzles - combines database and hardcoded content.
+ * Prefers database content when available.
+ */
+export async function getAllPuzzles(): Promise<FlashbackPuzzle[]> {
+  const dbPuzzles = await fetchPuzzles()
+
+  // If we got puzzles from DB, use those (they may be the same as hardcoded)
+  if (dbPuzzles !== puzzles) {
+    return dbPuzzles
+  }
+
+  // Fall back to hardcoded
+  return puzzles
+}
+
+/**
+ * Get a random puzzle - async version that fetches from DB first.
+ */
+export async function getRandomPuzzleAsync(): Promise<FlashbackPuzzle> {
+  const allPuzzles = await getAllPuzzles()
+  const index = Math.floor(Math.random() * allPuzzles.length)
+  return allPuzzles[index]
+}
+
+/**
+ * Get a puzzle by ID - async version that fetches from DB first.
+ */
+export async function getPuzzleByIdAsync(id: string): Promise<FlashbackPuzzle | null> {
+  const allPuzzles = await getAllPuzzles()
+  return allPuzzles.find(p => p.id === id) || null
+}
+
+/**
+ * Get a puzzle by index - async version that fetches from DB first.
+ */
+export async function getPuzzleByIndexAsync(index: number): Promise<FlashbackPuzzle> {
+  const allPuzzles = await getAllPuzzles()
+  return allPuzzles[index % allPuzzles.length]
+}
+
+/**
+ * Clear the puzzle cache (useful for testing or after imports).
+ */
+export function clearPuzzleCache(): void {
+  cachedPuzzles = null
+  cacheTimestamp = 0
 }
