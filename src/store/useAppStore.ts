@@ -172,9 +172,22 @@ supabase.auth.getSession().then(({ data: { session } }) => {
 
 // Fallback timeout in case auth check hangs
 setTimeout(() => {
-  const { authLoading, setAuthLoading } = useAppStore.getState()
+  const { authLoading, setAuthLoading, setSession, setUser } = useAppStore.getState()
   if (authLoading) {
-    console.warn('Auth loading timeout - forcing to false')
+    console.warn('Auth loading timeout - clearing potentially corrupted session')
+
+    // Clear any corrupted Supabase session from localStorage
+    const keys = Object.keys(localStorage)
+    keys.forEach(key => {
+      if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        console.warn('Removing stuck auth token:', key)
+        localStorage.removeItem(key)
+      }
+    })
+
+    // Reset auth state
+    setSession(null)
+    setUser(null)
     setAuthLoading(false)
   }
 }, 5000)
