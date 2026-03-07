@@ -19,6 +19,27 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   return Promise.race([promise, timeout])
 }
 
+// Retry a function up to maxAttempts times on timeout errors
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts: number = 3,
+  delayMs: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn()
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      const isTimeout = lastError.message.startsWith('Timeout:')
+      if (!isTimeout || attempt === maxAttempts) throw lastError
+      console.log(`Attempt ${attempt} failed (timeout), retrying in ${delayMs}ms...`)
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+    }
+  }
+  throw lastError
+}
+
 // Create a new Olympics
 export async function createOlympics(
   player1Id: string,
@@ -33,20 +54,24 @@ export async function createOlympics(
   console.log('createOlympics: proceeding with insert for player', player1Id)
 
   try {
-    const insertPromise = Promise.resolve(
-      supabase
-        .from('olympics')
-        .insert({
-          invite_code: inviteCode,
-          player1_id: player1Id,
-          event_sequence: eventSequence,
-          mode,
-        })
-        .select()
-        .single()
+    const { data: olympics, error } = await withRetry(() =>
+      withTimeout(
+        Promise.resolve(
+          supabase
+            .from('olympics')
+            .insert({
+              invite_code: inviteCode,
+              player1_id: player1Id,
+              event_sequence: eventSequence,
+              mode,
+            })
+            .select()
+            .single()
+        ),
+        15000,
+        'Olympics insert took too long — check your connection and try again'
+      )
     )
-
-    const { data: olympics, error } = await withTimeout(insertPromise, 30000, 'Olympics insert took too long — check your connection and try again')
 
     console.log('createOlympics: insert result', { olympics, error })
 
@@ -64,10 +89,12 @@ export async function createOlympics(
     config: eventOptions?.[eventType] || {},
   }))
 
-  const { error: eventsError } = await withTimeout(
-    Promise.resolve(supabase.from('olympics_events').insert(eventsToInsert)),
-    15000,
-    'Events insert took too long'
+  const { error: eventsError } = await withRetry(() =>
+    withTimeout(
+      Promise.resolve(supabase.from('olympics_events').insert(eventsToInsert)),
+      15000,
+      'Events insert took too long'
+    )
   )
 
   if (eventsError) {
