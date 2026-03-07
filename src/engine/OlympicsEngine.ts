@@ -11,35 +11,6 @@ export function generateInviteCode(): string {
   ).join('')
 }
 
-// Helper to add timeout to promises
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error(`Timeout: ${message}`)), ms)
-  )
-  return Promise.race([promise, timeout])
-}
-
-// Retry a function up to maxAttempts times on timeout errors
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  maxAttempts: number = 3,
-  delayMs: number = 1000
-): Promise<T> {
-  let lastError: Error | null = null
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await fn()
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err))
-      const isTimeout = lastError.message.startsWith('Timeout:')
-      if (!isTimeout || attempt === maxAttempts) throw lastError
-      console.log(`Attempt ${attempt} failed (timeout), retrying in ${delayMs}ms...`)
-      await new Promise((resolve) => setTimeout(resolve, delayMs))
-    }
-  }
-  throw lastError
-}
-
 // Create a new Olympics
 export async function createOlympics(
   player1Id: string,
@@ -48,62 +19,43 @@ export async function createOlympics(
   eventOptions?: EventOptions
 ): Promise<{ olympics: Olympics | null; error: Error | null }> {
   const inviteCode = generateInviteCode()
-  console.log('createOlympics: inserting with', { inviteCode, player1Id, eventSequence, mode })
-
-  // Skip session check - let RLS handle auth validation
-  console.log('createOlympics: proceeding with insert for player', player1Id)
 
   try {
-    const { data: olympics, error } = await withRetry(() =>
-      withTimeout(
-        Promise.resolve(
-          supabase
-            .from('olympics')
-            .insert({
-              invite_code: inviteCode,
-              player1_id: player1Id,
-              event_sequence: eventSequence,
-              mode,
-            })
-            .select()
-            .single()
-        ),
-        15000,
-        'Olympics insert took too long — check your connection and try again'
-      )
-    )
+    const { data: olympics, error } = await supabase
+      .from('olympics')
+      .insert({
+        invite_code: inviteCode,
+        player1_id: player1Id,
+        event_sequence: eventSequence,
+        mode,
+      })
+      .select()
+      .single()
 
-    console.log('createOlympics: insert result', { olympics, error })
+    if (error) {
+      return { olympics: null, error: new Error(error.message) }
+    }
 
-  if (error) {
-    return { olympics: null, error: new Error(error.message) }
-  }
+    // Create stub olympics_events for each event in sequence
+    const eventsToInsert = eventSequence.map((eventType, index) => ({
+      olympics_id: olympics.id,
+      event_index: index,
+      event_type: eventType,
+      status: 'pending' as const,
+      config: eventOptions?.[eventType] || {},
+    }))
 
-  // Create stub olympics_events for each event in sequence
-  const eventsToInsert = eventSequence.map((eventType, index) => ({
-    olympics_id: olympics.id,
-    event_index: index,
-    event_type: eventType,
-    status: 'pending' as const,
-    // Store event options (e.g., difficulty) in config field
-    config: eventOptions?.[eventType] || {},
-  }))
+    const { error: eventsError } = await supabase
+      .from('olympics_events')
+      .insert(eventsToInsert)
 
-  const { error: eventsError } = await withRetry(() =>
-    withTimeout(
-      Promise.resolve(supabase.from('olympics_events').insert(eventsToInsert)),
-      15000,
-      'Events insert took too long'
-    )
-  )
+    if (eventsError) {
+      // Clean up the olympics if events failed to create
+      await supabase.from('olympics').delete().eq('id', olympics.id)
+      return { olympics: null, error: new Error(eventsError.message) }
+    }
 
-  if (eventsError) {
-    // Clean up the olympics if events failed to create
-    await supabase.from('olympics').delete().eq('id', olympics.id)
-    return { olympics: null, error: new Error(eventsError.message) }
-  }
-
-  return { olympics, error: null }
+    return { olympics, error: null }
   } catch (err) {
     console.error('createOlympics: exception', err)
     return { olympics: null, error: err instanceof Error ? err : new Error(String(err)) }

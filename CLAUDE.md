@@ -449,3 +449,54 @@ Phase 3: Polish, animations, leaderboards, shareable result cards.
 3. Build game component in `[Name]Game.tsx`
 4. Add to `src/events/registry.ts`
 5. That's it — the engine and routing handle the rest automatically
+
+---
+
+## Known Issues & Solutions
+
+### Supabase Client Configuration
+
+**CRITICAL: Do NOT add custom `lock` functions to the Supabase client auth config.**
+
+The following configuration will cause ALL Supabase requests to hang indefinitely:
+
+```typescript
+// ❌ BAD - DO NOT USE
+export const supabase = createClient(url, key, {
+  auth: {
+    lock: async (name, acquireTimeout, fn) => fn(), // THIS BREAKS EVERYTHING
+  },
+})
+```
+
+The correct configuration is:
+
+```typescript
+// ✅ GOOD - Use default settings
+export const supabase = createClient(url, key, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+})
+```
+
+**Symptoms of this bug:**
+- "Auth loading timeout" errors in console
+- All Supabase queries hang and never return
+- Network tab shows no requests being made to Supabase
+- Raw `fetch()` calls to Supabase work fine, but the client doesn't
+
+**Solution:**
+1. Remove any custom `lock` function from `src/lib/supabase.ts`
+2. Clear localStorage: `localStorage.clear()`
+3. Reload the page
+
+### Environment Variables on Vercel
+
+When deploying to Vercel, ensure these environment variables are set:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+After adding/changing env vars, you must **redeploy** for changes to take effect.

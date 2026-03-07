@@ -13,13 +13,5 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    // Use localStorage for more reliable session persistence
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    // Use a no-op lock to prevent "Lock broken by another request" errors
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    lock: async <R>(_name: string, _acquireTimeout: number, fn: () => Promise<R>): Promise<R> => {
-      // Skip locking entirely - just run the function
-      return fn()
-    },
   },
 })
