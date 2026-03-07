@@ -1,0 +1,171 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export interface Database {
+  public: {
+    Tables: {
+      profiles: {
+        Row: {
+          id: string
+          username: string
+          display_name: string
+          avatar_url: string | null
+          total_golds: number
+          total_silvers: number
+          total_olympics: number
+          created_at: string
+        }
+        Insert: {
+          id: string
+          username: string
+          display_name: string
+          avatar_url?: string | null
+          total_golds?: number
+          total_silvers?: number
+          total_olympics?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          username?: string
+          display_name?: string
+          avatar_url?: string | null
+          total_golds?: number
+          total_silvers?: number
+          total_olympics?: number
+          created_at?: string
+        }
+      }
+      olympics: {
+        Row: {
+          id: string
+          invite_code: string
+          player1_id: string
+          player2_id: string | null
+          status: 'lobby' | 'active' | 'complete'
+          event_sequence: string[]
+          current_event_index: number
+          player1_gold_count: number
+          player2_gold_count: number
+          winner_id: string | null
+          mode: 'async' | 'realtime'
+          player1_forfeited_at: string | null
+          player2_forfeited_at: string | null
+          timeout_hours: number
+          created_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          invite_code: string
+          player1_id: string
+          player2_id?: string | null
+          status?: 'lobby' | 'active' | 'complete'
+          event_sequence: string[]
+          current_event_index?: number
+          player1_gold_count?: number
+          player2_gold_count?: number
+          winner_id?: string | null
+          mode?: 'async' | 'realtime'
+          player1_forfeited_at?: string | null
+          player2_forfeited_at?: string | null
+          timeout_hours?: number
+          created_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          invite_code?: string
+          player1_id?: string
+          player2_id?: string | null
+          status?: 'lobby' | 'active' | 'complete'
+          event_sequence?: string[]
+          current_event_index?: number
+          player1_gold_count?: number
+          player2_gold_count?: number
+          winner_id?: string | null
+          mode?: 'async' | 'realtime'
+          player1_forfeited_at?: string | null
+          player2_forfeited_at?: string | null
+          timeout_hours?: number
+          created_at?: string
+          completed_at?: string | null
+        }
+      }
+      olympics_events: {
+        Row: {
+          id: string
+          olympics_id: string
+          event_index: number
+          event_type: string
+          status: 'pending' | 'p1_active' | 'p2_active' | 'p1_complete' | 'p2_complete' | 'complete'
+          gold_winner_id: string | null
+          metadata: Json
+          started_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          olympics_id: string
+          event_index: number
+          event_type: string
+          status?: 'pending' | 'p1_active' | 'p2_active' | 'p1_complete' | 'p2_complete' | 'complete'
+          gold_winner_id?: string | null
+          metadata?: Json
+          started_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          olympics_id?: string
+          event_index?: number
+          event_type?: string
+          status?: 'pending' | 'p1_active' | 'p2_active' | 'p1_complete' | 'p2_complete' | 'complete'
+          gold_winner_id?: string | null
+          metadata?: Json
+          started_at?: string | null
+          created_at?: string
+        }
+      }
+      event_results: {
+        Row: {
+          id: string
+          olympics_event_id: string
+          player_id: string
+          score: number
+          raw_value: number
+          metadata: Json
+          completed_at: string
+        }
+        Insert: {
+          id?: string
+          olympics_event_id: string
+          player_id: string
+          score: number
+          raw_value: number
+          metadata?: Json
+          completed_at?: string
+        }
+        Update: {
+          id?: string
+          olympics_event_id?: string
+          player_id?: string
+          score?: number
+          raw_value?: number
+          metadata?: Json
+          completed_at?: string
+        }
+      }
+    }
+  }
+}
+
+export type Profile = Database['public']['Tables']['profiles']['Row']
+export type Olympics = Database['public']['Tables']['olympics']['Row']
+export type OlympicsEvent = Database['public']['Tables']['olympics_events']['Row']
+export type EventResult = Database['public']['Tables']['event_results']['Row']

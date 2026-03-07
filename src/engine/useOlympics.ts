@@ -1,0 +1,290 @@
+import { useEffect, useState, useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
+import {
+  subscribeToOlympics,
+  unsubscribeFromOlympics,
+} from '@/lib/realtime'
+import type { Olympics, OlympicsEvent, EventResult, Profile } from '@/lib/database.types'
+import type { RealtimeChannel } from '@supabase/supabase-js'
+import {
+  createOlympics,
+  joinOlympics,
+  startOlympics,
+  startEvent,
+  submitEventResult,
+  getOlympicsWithDetails,
+  getEventResults,
+} from './OlympicsEngine'
+import type { MatchResult, EventType } from '@/events/types'
+import { useAppStore } from '@/store/useAppStore'
+
+interface UseOlympicsReturn {
+  // Data
+  olympics: Olympics | null
+  events: OlympicsEvent[] | null
+  currentEvent: OlympicsEvent | null
+  player1Profile: Profile | null
+  player2Profile: Profile | null
+  currentEventResults: EventResult[] | null
+
+  // Loading states
+  isLoading: boolean
+  isCreating: boolean
+  isJoining: boolean
+  isStarting: boolean
+  isSubmitting: boolean
+
+  // Actions
+  create: (eventSequence: EventType[], mode?: 'async' | 'realtime') => Promise<Olympics | null>
+  join: (inviteCode: string) => Promise<Olympics | null>
+  start: () => Promise<boolean>
+  beginEvent: () => Promise<OlympicsEvent | null>
+  submitResult: (result: MatchResult) => Promise<boolean>
+  refetch: () => void
+
+  // Error
+  error: Error | null
+}
+
+export function useOlympics(olympicsId?: string): UseOlympicsReturn {
+  const queryClient = useQueryClient()
+  const { user, setCurrentOlympics, setCurrentOlympicsEvents } = useAppStore()
+  const [_channel, setChannel] = useState<RealtimeChannel | null>(null)
+
+  // Fetch Olympics data
+  const {
+    data: olympicsData,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['olympics', olympicsId],
+    queryFn: async () => {
+      if (!olympicsId) return { olympics: null, events: null }
+      return getOlympicsWithDetails(olympicsId)
+    },
+    enabled: !!olympicsId,
+    refetchOnWindowFocus: false,
+  })
+
+  const olympics = olympicsData?.olympics ?? null
+  const events = olympicsData?.events ?? null
+
+  // Update store when data changes
+  useEffect(() => {
+    setCurrentOlympics(olympics)
+    setCurrentOlympicsEvents(events)
+  }, [olympics, events, setCurrentOlympics, setCurrentOlympicsEvents])
+
+  // Get current event
+  const currentEvent = events?.find(
+    (e) => e.event_index === olympics?.current_event_index
+  ) ?? null
+
+  // Fetch player profiles
+  const { data: player1Profile } = useQuery({
+    queryKey: ['profile', olympics?.player1_id],
+    queryFn: async () => {
+      if (!olympics?.player1_id) return null
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', olympics.player1_id)
+        .single()
+      return data
+    },
+    enabled: !!olympics?.player1_id,
+  })
+
+  const { data: player2Profile } = useQuery({
+    queryKey: ['profile', olympics?.player2_id],
+    queryFn: async () => {
+      if (!olympics?.player2_id) return null
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', olympics.player2_id)
+        .single()
+      return data
+    },
+    enabled: !!olympics?.player2_id,
+  })
+
+  // Fetch current event results
+  const { data: currentEventResults } = useQuery({
+    queryKey: ['eventResults', currentEvent?.id],
+    queryFn: async () => {
+      if (!currentEvent?.id) return null
+      const { results } = await getEventResults(currentEvent.id)
+      return results
+    },
+    enabled: !!currentEvent?.id,
+  })
+
+  // Subscribe to realtime updates
+  useEffect(() => {
+    if (!olympicsId) return
+
+    const newChannel = subscribeToOlympics(
+      olympicsId,
+      (updatedOlympics) => {
+        queryClient.setQueryData(['olympics', olympicsId], (old: typeof olympicsData) => ({
+          ...old,
+          olympics: updatedOlympics,
+        }))
+      },
+      (updatedEvent) => {
+        queryClient.setQueryData(['olympics', olympicsId], (old: typeof olympicsData) => {
+          if (!old?.events) return old
+          return {
+            ...old,
+            events: old.events.map((e) =>
+              e.id === updatedEvent.id ? updatedEvent : e
+            ),
+          }
+        })
+      },
+      (_newResult) => {
+        // Refetch results when a new one is inserted
+        queryClient.invalidateQueries({ queryKey: ['eventResults'] })
+      }
+    )
+
+    setChannel(newChannel)
+
+    return () => {
+      if (newChannel) {
+        unsubscribeFromOlympics(newChannel)
+      }
+    }
+  }, [olympicsId, queryClient])
+
+  // Create Olympics mutation
+  const createMutation = useMutation({
+    mutationFn: async ({
+      eventSequence,
+      mode,
+    }: {
+      eventSequence: EventType[]
+      mode: 'async' | 'realtime'
+    }) => {
+      console.log('createMutation called, user:', user)
+      if (!user) throw new Error('Must be logged in')
+      console.log('Calling createOlympics with:', user.id, eventSequence, mode)
+      const result = await createOlympics(user.id, eventSequence, mode)
+      console.log('createOlympics result:', result)
+      if (result.error) throw result.error
+      return result.olympics
+    },
+    onSuccess: (data) => {
+      if (data) {
+        queryClient.invalidateQueries({ queryKey: ['olympics'] })
+      }
+    },
+  })
+
+  // Join Olympics mutation
+  const joinMutation = useMutation({
+    mutationFn: async (inviteCode: string) => {
+      if (!user) throw new Error('Must be logged in')
+      const result = await joinOlympics(inviteCode, user.id)
+      if (result.error) throw result.error
+      return result.olympics
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['olympics'] })
+    },
+  })
+
+  // Start Olympics mutation
+  const startMutation = useMutation({
+    mutationFn: async () => {
+      if (!olympicsId) throw new Error('No Olympics ID')
+      const result = await startOlympics(olympicsId)
+      if (result.error) throw result.error
+      return result.success
+    },
+    onSuccess: () => {
+      refetch()
+    },
+  })
+
+  // Begin event mutation (assigns puzzle)
+  const beginEventMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentEvent) throw new Error('No current event')
+      const result = await startEvent(currentEvent.id)
+      if (result.error) throw result.error
+      return result.event
+    },
+    onSuccess: () => {
+      refetch()
+    },
+  })
+
+  // Submit result mutation
+  const submitResultMutation = useMutation({
+    mutationFn: async (result: MatchResult) => {
+      if (!currentEvent || !user) throw new Error('Missing event or user')
+      const submitResult = await submitEventResult(currentEvent.id, user.id, result)
+      if (submitResult.error) throw submitResult.error
+      return submitResult.success
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['eventResults'] })
+      refetch()
+    },
+  })
+
+  // Action wrappers
+  const create = useCallback(
+    async (eventSequence: EventType[], mode: 'async' | 'realtime' = 'async') => {
+      return createMutation.mutateAsync({ eventSequence, mode })
+    },
+    [createMutation]
+  )
+
+  const join = useCallback(
+    async (inviteCode: string) => {
+      return joinMutation.mutateAsync(inviteCode)
+    },
+    [joinMutation]
+  )
+
+  const start = useCallback(async () => {
+    return startMutation.mutateAsync()
+  }, [startMutation])
+
+  const beginEvent = useCallback(async () => {
+    return beginEventMutation.mutateAsync()
+  }, [beginEventMutation])
+
+  const submitResult = useCallback(
+    async (result: MatchResult) => {
+      return submitResultMutation.mutateAsync(result)
+    },
+    [submitResultMutation]
+  )
+
+  return {
+    olympics,
+    events,
+    currentEvent,
+    player1Profile: player1Profile ?? null,
+    player2Profile: player2Profile ?? null,
+    currentEventResults: currentEventResults ?? null,
+    isLoading,
+    isCreating: createMutation.isPending,
+    isJoining: joinMutation.isPending,
+    isStarting: startMutation.isPending,
+    isSubmitting: submitResultMutation.isPending,
+    create,
+    join,
+    start,
+    beginEvent,
+    submitResult,
+    refetch,
+    error: error as Error | null,
+  }
+}
