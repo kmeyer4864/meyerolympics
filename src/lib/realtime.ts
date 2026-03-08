@@ -12,6 +12,8 @@ export function subscribeToOlympics(
   onEventChange: EventChangeHandler,
   onResultInsert: ResultInsertHandler
 ): RealtimeChannel {
+  console.log('[Realtime] Setting up subscription for olympics:', olympicsId)
+
   const channel = supabase
     .channel(`olympics:${olympicsId}`)
     .on(
@@ -23,6 +25,7 @@ export function subscribeToOlympics(
         filter: `id=eq.${olympicsId}`,
       },
       (payload) => {
+        console.log('[Realtime] Olympics UPDATE received:', payload.new)
         onOlympicsChange(payload.new as Olympics)
       }
     )
@@ -35,6 +38,7 @@ export function subscribeToOlympics(
         filter: `olympics_id=eq.${olympicsId}`,
       },
       (payload) => {
+        console.log('[Realtime] Event UPDATE received:', payload.new)
         onEventChange(payload.new as OlympicsEvent)
       }
     )
@@ -46,10 +50,13 @@ export function subscribeToOlympics(
         table: 'event_results',
       },
       (payload) => {
+        console.log('[Realtime] Result INSERT received:', payload.new)
         onResultInsert(payload.new as EventResult)
       }
     )
-    .subscribe()
+    .subscribe((status, err) => {
+      console.log('[Realtime] Subscription status:', status, err || '')
+    })
 
   return channel
 }
