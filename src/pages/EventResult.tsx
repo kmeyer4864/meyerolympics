@@ -25,14 +25,24 @@ export default function EventResult() {
   const dbEvent = events?.find((e) => e.event_index === eventIndex)
 
   // Query results specifically for THIS event by its ID
+  // Poll every 2 seconds while waiting for opponent's result
   const { data: thisEventResults } = useQuery({
     queryKey: ['eventResults', dbEvent?.id],
     queryFn: async () => {
       if (!dbEvent?.id) return null
       const { results } = await getEventResults(dbEvent.id)
+      console.log('[EventResult] Fetched results:', results?.length, 'for event:', dbEvent?.id)
       return results
     },
     enabled: !!dbEvent?.id,
+    refetchInterval: (query) => {
+      const results = query.state.data
+      // Keep polling until we have 2 results (both players finished)
+      if (!results || results.length < 2) {
+        return 2000
+      }
+      return false
+    },
   })
 
   if (!user) {

@@ -66,13 +66,13 @@ export function useOlympics(olympicsId?: string): UseOlympicsReturn {
     },
     enabled: !!olympicsId,
     refetchOnWindowFocus: false,
-    // Poll every 2 seconds while in lobby (waiting for player2 OR waiting for game to start)
-    // This is a fallback in case realtime doesn't work
+    // Poll every 2 seconds in these cases (fallback since realtime isn't reliable):
+    // 1. In lobby waiting for player2 or game start
+    // 2. During active game (to sync event status between players)
     refetchInterval: (query) => {
       const data = query.state.data
       const status = data?.olympics?.status
-      console.log('[useOlympics] Polling check - status:', status)
-      if (status === 'lobby') {
+      if (status === 'lobby' || status === 'active') {
         return 2000
       }
       return false
