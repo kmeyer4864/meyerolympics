@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useParams, Navigate } from 'react-router-dom'
 import { useOlympics } from '@/engine/useOlympics'
 import { useAppStore } from '@/store/useAppStore'
@@ -16,6 +17,15 @@ export default function OlympicsLobby() {
     isStarting,
     error,
   } = useOlympics(id)
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[OlympicsLobby] Olympics state changed:', {
+      status: olympics?.status,
+      player1_id: olympics?.player1_id,
+      player2_id: olympics?.player2_id,
+    })
+  }, [olympics?.status, olympics?.player1_id, olympics?.player2_id])
 
   if (!user) {
     return <Navigate to="/auth" replace />
