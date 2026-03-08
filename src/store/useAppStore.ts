@@ -58,20 +58,39 @@ export const useAppStore = create<AppState>()(
 
       // Sign in with email/password
       signIn: async (email, password) => {
-        const { error } = await supabase.auth.signInWithPassword({
+        const AUTH_TIMEOUT_MS = 10000
+
+        const signInPromise = supabase.auth.signInWithPassword({
           email,
           password,
         })
-        if (error) {
-          return { error }
+
+        const timeoutPromise = new Promise<{ error: Error }>((resolve) => {
+          setTimeout(() => {
+            resolve({ error: new Error('Sign in timeout - please try again') })
+          }, AUTH_TIMEOUT_MS)
+        })
+
+        const result = await Promise.race([signInPromise, timeoutPromise])
+
+        if ('data' in result) {
+          // Normal Supabase response
+          if (result.error) {
+            return { error: result.error }
+          }
+          await get().fetchProfile()
+          return { error: null }
+        } else {
+          // Timeout response
+          return { error: result.error }
         }
-        await get().fetchProfile()
-        return { error: null }
       },
 
       // Sign up with email/password
       signUp: async (email, password, username) => {
-        const { error } = await supabase.auth.signUp({
+        const AUTH_TIMEOUT_MS = 10000
+
+        const signUpPromise = supabase.auth.signUp({
           email,
           password,
           options: {
@@ -81,26 +100,57 @@ export const useAppStore = create<AppState>()(
             },
           },
         })
-        if (error) {
-          return { error }
-        }
-        return { error: null }
-      },
 
-      // Sign in with Google OAuth
-      signInWithGoogle: async () => {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: `${window.location.origin}/auth/callback`,
-          },
+        const timeoutPromise = new Promise<{ error: Error }>((resolve) => {
+          setTimeout(() => {
+            resolve({ error: new Error('Sign up timeout - please try again') })
+          }, AUTH_TIMEOUT_MS)
         })
-        return { error }
+
+        const result = await Promise.race([signUpPromise, timeoutPromise])
+
+        if ('data' in result) {
+          if (result.error) {
+            return { error: result.error }
+          }
+          return { error: null }
+        } else {
+          return { error: result.error }
+        }
       },
 
-      // Sign out
+      // Sign in with Google OAuth (with timeout)
+      signInWithGoogle: async () => {
+        const AUTH_TIMEOUT_MS = 10000
+
+        try {
+          const oauthPromise = supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: `${window.location.origin}/auth/callback`,
+            },
+          })
+
+          const timeoutPromise = new Promise<{ error: Error }>((resolve) => {
+            setTimeout(() => {
+              resolve({ error: new Error('OAuth timeout - please try again') })
+            }, AUTH_TIMEOUT_MS)
+          })
+
+          const result = await Promise.race([oauthPromise, timeoutPromise])
+
+          if ('data' in result) {
+            return { error: result.error }
+          }
+          return { error: result.error }
+        } catch (err) {
+          return { error: err instanceof Error ? err : new Error(String(err)) }
+        }
+      },
+
+      // Sign out - clear state FIRST, then try Supabase (don't wait forever)
       signOut: async () => {
-        await supabase.auth.signOut()
+        // 1. Immediately clear Zustand state (optimistic)
         set({
           user: null,
           session: null,
@@ -108,21 +158,52 @@ export const useAppStore = create<AppState>()(
           currentOlympics: null,
           currentOlympicsEvents: null,
         })
+
+        // 2. Clear all Supabase localStorage keys
+        try {
+          const keys = Object.keys(localStorage)
+          keys.forEach(key => {
+            if (key.startsWith('sb-')) {
+              localStorage.removeItem(key)
+            }
+          })
+        } catch (e) {
+          console.warn('Failed to clear localStorage:', e)
+        }
+
+        // 3. Try Supabase signOut with timeout (don't block if it hangs)
+        try {
+          await Promise.race([
+            supabase.auth.signOut(),
+            new Promise(resolve => setTimeout(resolve, 5000))
+          ])
+        } catch (e) {
+          console.warn('signOut request failed (state already cleared):', e)
+        }
       },
 
-      // Fetch current user's profile
+      // Fetch current user's profile with error handling
       fetchProfile: async () => {
         const { user } = get()
         if (!user) return
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
+        try {
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single()
 
-        if (profile) {
-          set({ profile })
+          if (error) {
+            console.warn('Failed to fetch profile:', error.message)
+            return
+          }
+
+          if (profile) {
+            set({ profile })
+          }
+        } catch (err) {
+          console.warn('Profile fetch error:', err)
         }
       },
     }),
@@ -136,58 +217,78 @@ export const useAppStore = create<AppState>()(
   )
 )
 
-// Initialize auth state listener
-supabase.auth.onAuthStateChange(async (_event, session) => {
+// =============================================================================
+// AUTH INITIALIZATION
+// =============================================================================
+// IMPORTANT: We use a single initialization path to prevent race conditions.
+// - getSession() loads the initial session
+// - onAuthStateChange() only handles SUBSEQUENT changes (login/logout events)
+// - A timeout protects against hung requests
+// =============================================================================
+
+let authInitialized = false
+let authSubscription: { data: { subscription: { unsubscribe: () => void } } } | null = null
+
+// Helper to set auth state
+const setAuthState = (session: Session | null) => {
   const { setSession, setUser, setAuthLoading, fetchProfile } = useAppStore.getState()
 
   setSession(session)
   setUser(session?.user ?? null)
 
   if (session?.user) {
-    await fetchProfile()
+    // Don't await - let it complete in background
+    fetchProfile().catch(err => console.warn('Profile fetch failed:', err))
   }
 
   setAuthLoading(false)
-})
+}
 
-// Check for existing session on load
-console.log('Starting getSession check...')
-const sessionStart = Date.now()
-supabase.auth.getSession().then(({ data: { session } }) => {
-  console.log('getSession result:', session ? 'has session' : 'no session', `(took ${Date.now() - sessionStart}ms)`)
-  const { setSession, setUser, setAuthLoading, fetchProfile } = useAppStore.getState()
+// 1. INITIAL SESSION CHECK (with timeout)
+const initAuth = async () => {
+  const AUTH_INIT_TIMEOUT_MS = 10000
 
-  setSession(session)
-  setUser(session?.user ?? null)
-
-  if (session?.user) {
-    fetchProfile()
-  }
-
-  setAuthLoading(false)
-}).catch((err) => {
-  console.error('getSession error:', err, `(took ${Date.now() - sessionStart}ms)`)
-  useAppStore.getState().setAuthLoading(false)
-})
-
-// Fallback timeout in case auth check hangs
-setTimeout(() => {
-  const { authLoading, setAuthLoading, setSession, setUser } = useAppStore.getState()
-  if (authLoading) {
-    console.warn('Auth loading timeout - clearing potentially corrupted session')
-
-    // Clear any corrupted Supabase session from localStorage
-    const keys = Object.keys(localStorage)
-    keys.forEach(key => {
-      if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-        console.warn('Removing stuck auth token:', key)
-        localStorage.removeItem(key)
-      }
+  try {
+    const sessionPromise = supabase.auth.getSession()
+    const timeoutPromise = new Promise<null>((resolve) => {
+      setTimeout(() => resolve(null), AUTH_INIT_TIMEOUT_MS)
     })
 
-    // Reset auth state
-    setSession(null)
-    setUser(null)
-    setAuthLoading(false)
+    const result = await Promise.race([sessionPromise, timeoutPromise])
+
+    if (result === null) {
+      // Timeout occurred
+      console.warn('Auth initialization timed out after 10s')
+      setAuthState(null)
+    } else {
+      // Got a response
+      setAuthState(result.data.session)
+    }
+  } catch (err) {
+    console.error('Auth initialization error:', err)
+    setAuthState(null)
   }
-}, 5000)
+
+  authInitialized = true
+}
+
+// 2. AUTH STATE CHANGE LISTENER (for subsequent changes only)
+authSubscription = supabase.auth.onAuthStateChange(async (event, session) => {
+  // Skip if this is the initial load (handled by getSession above)
+  if (!authInitialized) return
+
+  // Only respond to actual auth events, not initial state
+  if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+    setAuthState(session)
+  }
+})
+
+// Start initialization
+initAuth()
+
+// Cleanup function (call this when app unmounts if needed)
+export const cleanupAuthListener = () => {
+  if (authSubscription?.data.subscription) {
+    authSubscription.data.subscription.unsubscribe()
+  }
+}

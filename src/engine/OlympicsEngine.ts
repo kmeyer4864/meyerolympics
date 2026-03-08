@@ -3,6 +3,21 @@ import type { Olympics, OlympicsEvent as DBOlympicsEvent, EventResult } from '@/
 import { getEvent, isValidEventType } from '@/events/registry'
 import type { MatchResult, EventType, EventOptions } from '@/events/types'
 
+const QUERY_TIMEOUT_MS = 10000
+
+// Wrap a Supabase query with a timeout
+async function queryWithTimeout<T>(
+  queryFn: () => PromiseLike<T>,
+  operation: string
+): Promise<T> {
+  return Promise.race([
+    Promise.resolve(queryFn()),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${operation} timed out`)), QUERY_TIMEOUT_MS)
+    ),
+  ])
+}
+
 // Generate a human-readable invite code (8 alphanumeric chars, no confusing characters)
 export function generateInviteCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no I/O/0/1
@@ -21,16 +36,19 @@ export async function createOlympics(
   const inviteCode = generateInviteCode()
 
   try {
-    const { data: olympics, error } = await supabase
-      .from('olympics')
-      .insert({
-        invite_code: inviteCode,
-        player1_id: player1Id,
-        event_sequence: eventSequence,
-        mode,
-      })
-      .select()
-      .single()
+    const { data: olympics, error } = await queryWithTimeout(
+      () => supabase
+        .from('olympics')
+        .insert({
+          invite_code: inviteCode,
+          player1_id: player1Id,
+          event_sequence: eventSequence,
+          mode,
+        })
+        .select()
+        .single(),
+      'Create Olympics'
+    )
 
     if (error) {
       return { olympics: null, error: new Error(error.message) }
@@ -45,9 +63,12 @@ export async function createOlympics(
       config: eventOptions?.[eventType] || {},
     }))
 
-    const { error: eventsError } = await supabase
-      .from('olympics_events')
-      .insert(eventsToInsert)
+    const { error: eventsError } = await queryWithTimeout(
+      () => supabase
+        .from('olympics_events')
+        .insert(eventsToInsert),
+      'Create Olympics Events'
+    )
 
     if (eventsError) {
       // Clean up the olympics if events failed to create
@@ -67,38 +88,48 @@ export async function joinOlympics(
   inviteCode: string,
   player2Id: string
 ): Promise<{ olympics: Olympics | null; error: Error | null }> {
-  // First, find the Olympics
-  const { data: olympics, error: findError } = await supabase
-    .from('olympics')
-    .select('*')
-    .eq('invite_code', inviteCode.toUpperCase())
-    .single()
+  try {
+    // First, find the Olympics (with timeout)
+    const { data: olympics, error: findError } = await queryWithTimeout(
+      () => supabase
+        .from('olympics')
+        .select('*')
+        .eq('invite_code', inviteCode.toUpperCase())
+        .single(),
+      'Find Olympics'
+    )
 
-  if (findError || !olympics) {
-    return { olympics: null, error: new Error('Olympics not found') }
+    if (findError || !olympics) {
+      return { olympics: null, error: new Error('Olympics not found') }
+    }
+
+    if (olympics.player2_id) {
+      return { olympics: null, error: new Error('Olympics already has two players') }
+    }
+
+    if (olympics.player1_id === player2Id) {
+      return { olympics: null, error: new Error('You cannot join your own Olympics') }
+    }
+
+    // Update with player 2 (with timeout)
+    const { data: updatedOlympics, error: updateError } = await queryWithTimeout(
+      () => supabase
+        .from('olympics')
+        .update({ player2_id: player2Id })
+        .eq('id', olympics.id)
+        .select()
+        .single(),
+      'Join Olympics'
+    )
+
+    if (updateError) {
+      return { olympics: null, error: new Error(updateError.message) }
+    }
+
+    return { olympics: updatedOlympics, error: null }
+  } catch (err) {
+    return { olympics: null, error: err instanceof Error ? err : new Error(String(err)) }
   }
-
-  if (olympics.player2_id) {
-    return { olympics: null, error: new Error('Olympics already has two players') }
-  }
-
-  if (olympics.player1_id === player2Id) {
-    return { olympics: null, error: new Error('You cannot join your own Olympics') }
-  }
-
-  // Update with player 2
-  const { data: updatedOlympics, error: updateError } = await supabase
-    .from('olympics')
-    .update({ player2_id: player2Id })
-    .eq('id', olympics.id)
-    .select()
-    .single()
-
-  if (updateError) {
-    return { olympics: null, error: new Error(updateError.message) }
-  }
-
-  return { olympics: updatedOlympics, error: null }
 }
 
 // Start the Olympics (both players ready)

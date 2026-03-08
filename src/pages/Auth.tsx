@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
+import { forceCleanAuth } from '@/lib/supabase'
 
 type AuthMode = 'signin' | 'signup'
 
@@ -13,8 +14,19 @@ export default function Auth() {
   const [username, setUsername] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [showReset, setShowReset] = useState(false)
 
   const { signIn, signUp, signInWithGoogle } = useAppStore()
+
+  // Show reset button if loading takes more than 5 seconds
+  useEffect(() => {
+    if (loading) {
+      const timer = setTimeout(() => setShowReset(true), 5000)
+      return () => clearTimeout(timer)
+    } else {
+      setShowReset(false)
+    }
+  }, [loading])
 
   const from = (location.state as { from?: string })?.from || '/'
 
@@ -135,6 +147,20 @@ export default function Auth() {
             >
               {loading ? 'Loading...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
             </button>
+
+            {showReset && (
+              <button
+                type="button"
+                onClick={async () => {
+                  setLoading(false)
+                  await forceCleanAuth()
+                  window.location.reload()
+                }}
+                className="w-full mt-2 py-2 px-4 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors text-sm"
+              >
+                Stuck? Clear auth state & reload
+              </button>
+            )}
           </form>
 
           <div className="mt-6">
