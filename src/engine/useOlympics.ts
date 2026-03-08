@@ -66,6 +66,15 @@ export function useOlympics(olympicsId?: string): UseOlympicsReturn {
     },
     enabled: !!olympicsId,
     refetchOnWindowFocus: false,
+    // Poll every 3 seconds while in lobby waiting for player2
+    // This is a fallback in case realtime doesn't work
+    refetchInterval: (query) => {
+      const data = query.state.data
+      if (data?.olympics?.status === 'lobby' && !data?.olympics?.player2_id) {
+        return 3000
+      }
+      return false
+    },
   })
 
   const olympics = olympicsData?.olympics ?? null
@@ -97,19 +106,29 @@ export function useOlympics(olympicsId?: string): UseOlympicsReturn {
     enabled: !!olympics?.player1_id,
   })
 
-  const { data: player2Profile } = useQuery({
+  const { data: player2Profile, refetch: refetchPlayer2Profile } = useQuery({
     queryKey: ['profile', olympics?.player2_id],
     queryFn: async () => {
       if (!olympics?.player2_id) return null
+      console.log('[useOlympics] Fetching player2 profile:', olympics.player2_id)
       const { data } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', olympics.player2_id)
         .single()
+      console.log('[useOlympics] Player2 profile result:', data)
       return data
     },
     enabled: !!olympics?.player2_id,
   })
+
+  // Force refetch player2 profile when player2_id changes
+  useEffect(() => {
+    if (olympics?.player2_id) {
+      console.log('[useOlympics] player2_id detected, refetching profile:', olympics.player2_id)
+      refetchPlayer2Profile()
+    }
+  }, [olympics?.player2_id, refetchPlayer2Profile])
 
   // Fetch current event results
   const { data: currentEventResults } = useQuery({
