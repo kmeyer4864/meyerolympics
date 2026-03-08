@@ -97,6 +97,7 @@ export function useHoldemRealtime({
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState()
       const players = Object.keys(state)
+      console.log('[Holdem] Presence sync - players:', players)
 
       setIsConnected(true)
 
@@ -179,11 +180,16 @@ export function useHoldemRealtime({
     })
 
     // Subscribe to channel
-    channel.subscribe(async (status) => {
+    channel.subscribe(async (status, err) => {
+      console.log('[Holdem] Channel subscription status:', status, err || '')
       if (status === 'SUBSCRIBED') {
+        console.log('[Holdem] Tracking presence...')
         await channel.track({
           online_at: new Date().toISOString(),
         })
+        console.log('[Holdem] Presence tracked')
+        // Set connected immediately after successful track
+        setIsConnected(true)
       }
     })
 
