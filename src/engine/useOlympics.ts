@@ -133,6 +133,10 @@ export function useOlympics(olympicsId?: string): UseOlympicsReturn {
           ...old,
           olympics: updatedOlympics,
         }))
+        // When player2 joins, invalidate their profile query to trigger a fetch
+        if (updatedOlympics.player2_id) {
+          queryClient.invalidateQueries({ queryKey: ['profile', updatedOlympics.player2_id] })
+        }
       },
       (updatedEvent) => {
         queryClient.setQueryData(['olympics', olympicsId], (old: typeof olympicsData) => {
