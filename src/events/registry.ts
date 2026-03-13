@@ -1,16 +1,12 @@
-import { sudokuEvent } from './sudoku'
 import { flashbackEvent } from './flashback'
-import { holdemEvent } from './holdem'
-import { cribbageEvent } from './cribbage'
 import { geographyEvent } from './geography'
+import { geodleEvent } from './geodle'
 import type { OlympicsEvent, EventType } from './types'
 
 export const EVENT_REGISTRY: Record<EventType, OlympicsEvent> = {
-  sudoku: sudokuEvent,
   flashback: flashbackEvent,
-  holdem: holdemEvent,
-  cribbage: cribbageEvent,
   geography: geographyEvent,
+  geodle: geodleEvent,
 }
 
 export const getAllEvents = (): OlympicsEvent[] => Object.values(EVENT_REGISTRY)

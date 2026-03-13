@@ -1,6 +1,6 @@
 import type { FC } from 'react'
 
-export type EventType = 'sudoku' | 'flashback' | 'holdem' | 'cribbage' | 'geography'
+export type EventType = 'flashback' | 'geography' | 'geodle'
 
 export type WinCondition = 'highest_score' | 'lowest_score' | 'fastest_time'
 
