@@ -7,6 +7,7 @@ import { isValidEventType, getEvent } from '@/events/registry'
 import type { EventType, MatchResult } from '@/events/types'
 import PodiumReveal from '@/components/podium/PodiumReveal'
 import FlashbackSummary from '@/components/flashback/FlashbackSummary'
+import GeographySummary from '@/components/geography/GeographySummary'
 
 export default function EventResult() {
   const { id, idx } = useParams<{ id: string; idx: string }>()
@@ -170,13 +171,25 @@ export default function EventResult() {
       }
     : null
 
-  // Use FlashbackSummary for flashback events
+  // Use custom summary components for specific events
   const isFlashback = dbEvent.event_type === 'flashback'
+  const isGeography = dbEvent.event_type === 'geography'
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       {isFlashback ? (
         <FlashbackSummary
+          player1Profile={player1Profile}
+          player2Profile={player2Profile}
+          player1Result={player1MatchResult}
+          player2Result={player2MatchResult}
+          goldWinnerId={dbEvent.gold_winner_id}
+          player1Id={olympics.player1_id}
+          onContinue={handleContinue}
+          isLastEvent={isLastEvent}
+        />
+      ) : isGeography ? (
+        <GeographySummary
           player1Profile={player1Profile}
           player2Profile={player2Profile}
           player1Result={player1MatchResult}

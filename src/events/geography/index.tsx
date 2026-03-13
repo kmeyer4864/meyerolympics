@@ -10,7 +10,7 @@ export const geographyEvent: OlympicsEvent = {
   icon: '🌍',
   estimatedMinutes: 5,
   supportsAsync: true,
-  supportsRealtime: true,
+  supportsRealtime: false, // Using async polling instead of WebSocket
   winCondition: 'highest_score',
   rules: [
     'You will see 5 mystery locations with clues',

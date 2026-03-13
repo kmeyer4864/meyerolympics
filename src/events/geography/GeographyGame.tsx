@@ -3,7 +3,6 @@ import type { EventComponentProps, MatchResult } from '../types'
 import { getLocationsByIds, calculateDistance, formatDistance, type Location } from './locations'
 import WorldMap from './WorldMap'
 import { ElapsedTimer } from '@/components/shared/CountdownTimer'
-import GeographyGameRealtime from './GeographyGameRealtime'
 
 interface GuessResult {
   location: Location
@@ -12,13 +11,8 @@ interface GuessResult {
 }
 
 export default function GeographyGame(props: EventComponentProps) {
-  const { isRealtime, eventId, playerId } = props
-
-  // Delegate to realtime component if in realtime mode
-  if (isRealtime && eventId && playerId) {
-    return <GeographyGameRealtime {...props} />
-  }
-
+  // Always use async mode - realtime WebSocket connections are unreliable
+  // Both players play independently, then see comparison on results page
   return <GeographyGameAsync {...props} />
 }
 
@@ -87,9 +81,18 @@ function GeographyGameAsync({
         completedAt: new Date().toISOString(),
         metadata: {
           locationIds,
-          distances: guessResults.map(r => r.distance),
           totalDistance,
           avgDistance,
+          // Store detailed guesses for comparison on results page
+          guesses: guessResults.map(r => ({
+            locationId: r.location.id,
+            locationName: r.location.name,
+            correctLat: r.location.lat,
+            correctLng: r.location.lng,
+            guessLat: r.guess.lat,
+            guessLng: r.guess.lng,
+            distance: r.distance,
+          })),
         },
       }
 
