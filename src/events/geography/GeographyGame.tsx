@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import type { EventComponentProps, MatchResult } from '../types'
-import { getLocationsByIds, calculateDistance, formatDistance, type Location } from './locations'
+import { getLocationsByIds, calculateDistance, formatDistance, isOnTarget, type Location } from './locations'
 import WorldMap from './WorldMap'
 import { ElapsedTimer } from '@/components/shared/CountdownTimer'
 
@@ -92,6 +92,8 @@ function GeographyGameAsync({
             guessLat: r.guess.lat,
             guessLng: r.guess.lng,
             distance: r.distance,
+            radiusKm: r.location.radiusKm,
+            onTarget: isOnTarget(r.distance, r.location),
           })),
         },
       }
@@ -150,28 +152,45 @@ function GeographyGameAsync({
       />
 
       {/* Result feedback */}
-      {showingResult && !isComplete && guessResults.length > 0 && (
-        <div className="mt-4 p-4 bg-navy-800 rounded-xl border border-navy-600 animate-fade-in">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-400 text-sm">Distance from {currentLocation.name}:</p>
-              <p className={`text-2xl font-bold ${
-                guessResults[guessResults.length - 1].distance < 500 ? 'text-green-400' :
-                guessResults[guessResults.length - 1].distance < 2000 ? 'text-yellow-400' :
-                'text-red-400'
-              }`}>
-                {formatDistance(guessResults[guessResults.length - 1].distance)}
-              </p>
+      {showingResult && !isComplete && guessResults.length > 0 && (() => {
+        const lastResult = guessResults[guessResults.length - 1]
+        const onTarget = isOnTarget(lastResult.distance, lastResult.location)
+        return (
+          <div className="mt-4 p-4 bg-navy-800 rounded-xl border border-navy-600 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm">Distance from {currentLocation.name}:</p>
+                <div className="flex items-center gap-3">
+                  <p className={`text-2xl font-bold ${
+                    onTarget ? 'text-green-400' :
+                    lastResult.distance < 500 ? 'text-green-400' :
+                    lastResult.distance < 2000 ? 'text-yellow-400' :
+                    'text-red-400'
+                  }`}>
+                    {formatDistance(lastResult.distance)}
+                  </p>
+                  {onTarget && (
+                    <span className="px-2 py-1 bg-green-500/20 text-green-400 text-sm font-bold rounded border border-green-500/30">
+                      ✓ On Target!
+                    </span>
+                  )}
+                </div>
+                {!onTarget && (
+                  <p className="text-gray-500 text-xs mt-1">
+                    Target area: within {formatDistance(lastResult.location.radiusKm)}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={handleNextLocation}
+                className="px-6 py-3 bg-gold text-navy-900 font-bold rounded-lg hover:bg-gold/90 transition-colors"
+              >
+                {currentIndex + 1 >= totalLocations ? 'See Results' : 'Next Location'}
+              </button>
             </div>
-            <button
-              onClick={handleNextLocation}
-              className="px-6 py-3 bg-gold text-navy-900 font-bold rounded-lg hover:bg-gold/90 transition-colors"
-            >
-              {currentIndex + 1 >= totalLocations ? 'See Results' : 'Next Location'}
-            </button>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Confirm button */}
       {!showingResult && !isComplete && (
@@ -221,24 +240,31 @@ function GeographyGameAsync({
 
           {/* Results breakdown */}
           <div className="space-y-2">
-            {guessResults.map((result, index) => (
-              <div
-                key={result.location.id}
-                className="flex items-center justify-between p-3 bg-navy-800/50 rounded-lg"
-              >
-                <div>
-                  <span className="text-gray-500 mr-2">{index + 1}.</span>
-                  <span className="text-white">{result.location.name}</span>
+            {guessResults.map((result, index) => {
+              const onTarget = isOnTarget(result.distance, result.location)
+              return (
+                <div
+                  key={result.location.id}
+                  className="flex items-center justify-between p-3 bg-navy-800/50 rounded-lg"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500">{index + 1}.</span>
+                    <span className="text-white">{result.location.name}</span>
+                    {onTarget && (
+                      <span className="text-green-400 text-xs">✓</span>
+                    )}
+                  </div>
+                  <span className={`font-semibold ${
+                    onTarget ? 'text-green-400' :
+                    result.distance < 500 ? 'text-green-400' :
+                    result.distance < 2000 ? 'text-yellow-400' :
+                    'text-red-400'
+                  }`}>
+                    {formatDistance(result.distance)}
+                  </span>
                 </div>
-                <span className={`font-semibold ${
-                  result.distance < 500 ? 'text-green-400' :
-                  result.distance < 2000 ? 'text-yellow-400' :
-                  'text-red-400'
-                }`}>
-                  {formatDistance(result.distance)}
-                </span>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
