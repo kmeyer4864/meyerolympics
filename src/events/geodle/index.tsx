@@ -1,7 +1,6 @@
 import type { OlympicsEvent, MatchResult } from '../types'
 import GeodleGame from './GeodleGame'
-import { countries } from './countryData'
-import { availableCountryIds } from './CountrySelectMap'
+import { getAllCountryIds } from './countryData'
 import { selectUnseenRandom, markAsSeen } from '@/lib/seenContentTracker'
 import { tieBreakByTime } from '../types'
 
@@ -57,10 +56,8 @@ export const geodleEvent: OlympicsEvent = {
   generatePuzzleMetadata(options?: Record<string, string>): Record<string, unknown> {
     const userId = options?.userId
 
-    // Get countries that are both in our data AND available on the map
-    const validCountryIds = countries
-      .filter(c => availableCountryIds.includes(c.id))
-      .map(c => c.id)
+    // Get all available country IDs from our data
+    const validCountryIds = getAllCountryIds()
 
     // If we have a userId, use seen content tracking to avoid repeats
     let countryId: string

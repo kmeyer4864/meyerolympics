@@ -1,8 +1,11 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { EventComponentProps, MatchResult } from '../types'
 import { getCountryById } from './countryData'
-import CountrySelectMap, { availableCountryIds } from './CountrySelectMap'
+import CountryMap from './CountryMap'
 import { ElapsedTimer } from '@/components/shared/CountdownTimer'
+
+// Note: CountryMap uses normalizeCountryName internally to convert GeoJSON country names
+// to our country IDs (e.g., "United States of America" -> "usa")
 
 const MAX_GUESSES = 6
 
@@ -31,7 +34,7 @@ export default function GeodleGame({
     return targetCountry.hints.slice(0, currentHintIndex + 1)
   }, [targetCountry, currentHintIndex])
 
-  const handleCountrySelect = useCallback((selectedCountryId: string) => {
+  const handleCountrySelect = useCallback((selectedCountryId: string, _countryName: string) => {
     if (isComplete || !targetCountry) return
     if (wrongGuesses.includes(selectedCountryId)) return
 
@@ -95,9 +98,6 @@ export default function GeodleGame({
       </div>
     )
   }
-
-  // Check if the target country is available on the map
-  const isCountryOnMap = availableCountryIds.includes(targetCountry.id)
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -165,10 +165,10 @@ export default function GeodleGame({
         )}
       </div>
 
-      {/* Map or fallback */}
-      {!isComplete && isCountryOnMap && (
+      {/* Interactive Map */}
+      {!isComplete && (
         <>
-          <CountrySelectMap
+          <CountryMap
             onCountrySelect={handleCountrySelect}
             wrongGuesses={wrongGuesses}
             correctCountry={correctCountry}
@@ -178,37 +178,6 @@ export default function GeodleGame({
             Click on a country to make your guess
           </p>
         </>
-      )}
-
-      {/* Fallback for countries not on simplified map */}
-      {!isComplete && !isCountryOnMap && (
-        <div className="bg-navy-800 rounded-xl p-6 border border-navy-600">
-          <p className="text-gray-300 text-center mb-4">
-            Select a country from the list:
-          </p>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-64 overflow-y-auto">
-            {availableCountryIds.map((id) => {
-              const isWrong = wrongGuesses.includes(id)
-              const isCorrect = correctCountry === id
-              return (
-                <button
-                  key={id}
-                  onClick={() => !isWrong && !isCorrect && handleCountrySelect(id)}
-                  disabled={isWrong || isComplete}
-                  className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                    isCorrect
-                      ? 'bg-green-500 text-white'
-                      : isWrong
-                      ? 'bg-red-500/50 text-gray-400 cursor-not-allowed'
-                      : 'bg-navy-700 text-white hover:bg-gold hover:text-navy-900'
-                  }`}
-                >
-                  {id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                </button>
-              )
-            })}
-          </div>
-        </div>
       )}
 
       {/* Wrong guesses list */}
@@ -260,16 +229,14 @@ export default function GeodleGame({
             )}
 
             {/* Show the map with result */}
-            {isCountryOnMap && (
-              <div className="mt-4">
-                <CountrySelectMap
-                  onCountrySelect={() => {}}
-                  wrongGuesses={wrongGuesses}
-                  correctCountry={targetCountry.id}
-                  disabled={true}
-                />
-              </div>
-            )}
+            <div className="mt-4">
+              <CountryMap
+                onCountrySelect={() => {}}
+                wrongGuesses={wrongGuesses}
+                correctCountry={targetCountry.id}
+                disabled={true}
+              />
+            </div>
           </div>
         </div>
       )}
