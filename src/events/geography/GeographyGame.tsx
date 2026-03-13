@@ -3,6 +3,7 @@ import type { EventComponentProps, MatchResult } from '../types'
 import { getLocationsByIds, calculateDistance, formatDistance, type Location } from './locations'
 import WorldMap from './WorldMap'
 import { ElapsedTimer } from '@/components/shared/CountdownTimer'
+import GeographyGameRealtime from './GeographyGameRealtime'
 
 interface GuessResult {
   location: Location
@@ -10,7 +11,18 @@ interface GuessResult {
   distance: number
 }
 
-export default function GeographyGame({
+export default function GeographyGame(props: EventComponentProps) {
+  const { isRealtime, eventId, playerId } = props
+
+  // Delegate to realtime component if in realtime mode
+  if (isRealtime && eventId && playerId) {
+    return <GeographyGameRealtime {...props} />
+  }
+
+  return <GeographyGameAsync {...props} />
+}
+
+function GeographyGameAsync({
   puzzleMetadata,
   onComplete,
 }: EventComponentProps) {

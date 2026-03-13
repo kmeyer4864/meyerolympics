@@ -3,6 +3,15 @@ import type { EventComponentProps, MatchResult } from '../types'
 import { getPuzzleById, type TimelineEvent } from './puzzleData'
 import { ElapsedTimer, useElapsedTime } from '@/components/shared/CountdownTimer'
 
+export interface PlacementResult {
+  eventId: string
+  eventDescription: string
+  correctYear: number
+  placedAtPosition: number
+  correctPosition: number
+  isCorrect: boolean
+}
+
 interface TimelineSlotProps {
   position: number
   onClick: () => void
@@ -115,6 +124,7 @@ export default function FlashbackGame({
   const [lastPlacedIndex, setLastPlacedIndex] = useState<number | null>(null)
   const [wasWrong, setWasWrong] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [placements, setPlacements] = useState<PlacementResult[]>([])
 
   const elapsedMs = useElapsedTime(startTime)
   const maxStrikes = 8
@@ -150,6 +160,17 @@ export default function FlashbackGame({
     const correctPosition = findCorrectPosition(currentEvent, timeline)
     const isCorrect = position === correctPosition
 
+    // Record the placement result
+    const placementResult: PlacementResult = {
+      eventId: currentEvent.id,
+      eventDescription: currentEvent.description,
+      correctYear: currentEvent.year,
+      placedAtPosition: position,
+      correctPosition,
+      isCorrect,
+    }
+    setPlacements(prev => [...prev, placementResult])
+
     if (!isCorrect) {
       setStrikes(s => s + 1)
       setWasWrong(true)
@@ -181,6 +202,13 @@ export default function FlashbackGame({
         const rawValue = (8 - finalStrikes) * 1000 - (timeMs / 1000) * 0.1
         const score = Math.round(((8 - finalStrikes) / 8) * 100)
 
+        // The current placement was already added to state via setPlacements above
+        // But since setState is async, we need to build the complete list here
+        const finalPlacements: PlacementResult[] = [
+          ...placements,
+          placementResult,
+        ]
+
         const result: MatchResult = {
           score: Math.max(0, score),
           rawValue: Math.max(0, rawValue),
@@ -189,6 +217,7 @@ export default function FlashbackGame({
             puzzleId,
             strikes: finalStrikes,
             elapsedMs: timeMs,
+            placements: finalPlacements,
           },
         }
 
@@ -197,7 +226,7 @@ export default function FlashbackGame({
         setCurrentEventIndex(nextIndex)
       }
     }, 1000)
-  }, [currentEvent, timeline, isComplete, isAnimating, findCorrectPosition, currentEventIndex, shuffledOrder.length, strikes, startTime, puzzleId, onComplete])
+  }, [currentEvent, timeline, isComplete, isAnimating, findCorrectPosition, currentEventIndex, shuffledOrder.length, strikes, startTime, puzzleId, onComplete, placements])
 
   // Loading state
   if (!puzzle || timeline.length === 0) {

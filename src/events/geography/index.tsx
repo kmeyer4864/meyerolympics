@@ -10,7 +10,7 @@ export const geographyEvent: OlympicsEvent = {
   icon: '🌍',
   estimatedMinutes: 5,
   supportsAsync: true,
-  supportsRealtime: false,
+  supportsRealtime: true,
   winCondition: 'highest_score',
   rules: [
     'You will see 5 mystery locations with clues',

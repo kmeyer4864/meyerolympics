@@ -6,6 +6,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { isValidEventType, getEvent } from '@/events/registry'
 import type { EventType, MatchResult } from '@/events/types'
 import PodiumReveal from '@/components/podium/PodiumReveal'
+import FlashbackSummary from '@/components/flashback/FlashbackSummary'
 
 export default function EventResult() {
   const { id, idx } = useParams<{ id: string; idx: string }>()
@@ -169,19 +170,35 @@ export default function EventResult() {
       }
     : null
 
+  // Use FlashbackSummary for flashback events
+  const isFlashback = dbEvent.event_type === 'flashback'
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
-      <PodiumReveal
-        eventType={dbEvent.event_type as EventType}
-        player1Profile={player1Profile}
-        player2Profile={player2Profile}
-        player1Result={player1MatchResult}
-        player2Result={player2MatchResult}
-        goldWinnerId={dbEvent.gold_winner_id}
-        player1Id={olympics.player1_id}
-        onContinue={handleContinue}
-        isLastEvent={isLastEvent}
-      />
+      {isFlashback ? (
+        <FlashbackSummary
+          player1Profile={player1Profile}
+          player2Profile={player2Profile}
+          player1Result={player1MatchResult}
+          player2Result={player2MatchResult}
+          goldWinnerId={dbEvent.gold_winner_id}
+          player1Id={olympics.player1_id}
+          onContinue={handleContinue}
+          isLastEvent={isLastEvent}
+        />
+      ) : (
+        <PodiumReveal
+          eventType={dbEvent.event_type as EventType}
+          player1Profile={player1Profile}
+          player2Profile={player2Profile}
+          player1Result={player1MatchResult}
+          player2Result={player2MatchResult}
+          goldWinnerId={dbEvent.gold_winner_id}
+          player1Id={olympics.player1_id}
+          onContinue={handleContinue}
+          isLastEvent={isLastEvent}
+        />
+      )}
     </div>
   )
 }
