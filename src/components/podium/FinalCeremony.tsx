@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react'
-import type { Olympics, Profile } from '@/lib/database.types'
+import type { Olympics, Profile, GameSession } from '@/lib/database.types'
 import PlayerAvatar from '../shared/PlayerAvatar'
 import MedalBadge, { MedalCount } from '../shared/MedalBadge'
+import SessionBadge from '../shared/SessionBadge'
 
 interface FinalCeremonyProps {
   olympics: Olympics
   player1Profile: Profile | null
   player2Profile: Profile | null
+  session?: GameSession | null
   onRematch?: () => void
   onHome?: () => void
+  isRematching?: boolean
+  rematchError?: string | null
   className?: string
 }
 
@@ -18,8 +22,11 @@ export default function FinalCeremony({
   olympics,
   player1Profile,
   player2Profile,
+  session = null,
   onRematch,
   onHome,
+  isRematching = false,
+  rematchError = null,
   className = '',
 }: FinalCeremonyProps) {
   const [stage, setStage] = useState<CeremonyStage>('intro')
@@ -54,6 +61,13 @@ export default function FinalCeremony({
       <h1 className="font-display text-4xl md:text-5xl font-bold text-gold animate-fade-in">
         Olympics Complete!
       </h1>
+
+      {/* Session indicator */}
+      {session && (
+        <div className="mt-4 flex justify-center">
+          <SessionBadge session={session} />
+        </div>
+      )}
 
       {/* Final Standings */}
       {(stage === 'standings' || stage === 'champion' || stage === 'complete') && (
@@ -146,23 +160,32 @@ export default function FinalCeremony({
 
       {/* Actions */}
       {stage === 'complete' && (
-        <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in">
-          {onRematch && (
-            <button
-              onClick={onRematch}
-              className="px-8 py-3 bg-gold text-navy-950 font-semibold rounded-lg hover:bg-gold-400 transition-colors"
-            >
-              Rematch
-            </button>
+        <div className="mt-12 animate-fade-in">
+          {/* Error message */}
+          {rematchError && (
+            <div className="mb-4 p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-200 text-sm">
+              {rematchError}
+            </div>
           )}
-          {onHome && (
-            <button
-              onClick={onHome}
-              className="px-8 py-3 bg-navy-700 text-white font-semibold rounded-lg hover:bg-navy-600 transition-colors"
-            >
-              Back to Home
-            </button>
-          )}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            {onRematch && (
+              <button
+                onClick={onRematch}
+                disabled={isRematching}
+                className="px-8 py-3 bg-gold text-navy-950 font-semibold rounded-lg hover:bg-gold-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isRematching ? 'Creating Rematch...' : 'Rematch'}
+              </button>
+            )}
+            {onHome && (
+              <button
+                onClick={onHome}
+                className="px-8 py-3 bg-navy-700 text-white font-semibold rounded-lg hover:bg-navy-600 transition-colors"
+              >
+                Back to Home
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

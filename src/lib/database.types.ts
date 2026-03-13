@@ -41,6 +41,38 @@ export interface Database {
           created_at?: string
         }
       }
+      game_sessions: {
+        Row: {
+          id: string
+          session_code: string
+          player1_id: string
+          player2_id: string | null
+          mode: 'async' | 'realtime'
+          games_played: number
+          created_at: string
+          last_active_at: string
+        }
+        Insert: {
+          id?: string
+          session_code: string
+          player1_id: string
+          player2_id?: string | null
+          mode?: 'async' | 'realtime'
+          games_played?: number
+          created_at?: string
+          last_active_at?: string
+        }
+        Update: {
+          id?: string
+          session_code?: string
+          player1_id?: string
+          player2_id?: string | null
+          mode?: 'async' | 'realtime'
+          games_played?: number
+          created_at?: string
+          last_active_at?: string
+        }
+      }
       olympics: {
         Row: {
           id: string
@@ -57,6 +89,7 @@ export interface Database {
           player1_forfeited_at: string | null
           player2_forfeited_at: string | null
           timeout_hours: number
+          session_id: string | null
           created_at: string
           completed_at: string | null
         }
@@ -75,6 +108,7 @@ export interface Database {
           player1_forfeited_at?: string | null
           player2_forfeited_at?: string | null
           timeout_hours?: number
+          session_id?: string | null
           created_at?: string
           completed_at?: string | null
         }
@@ -93,6 +127,7 @@ export interface Database {
           player1_forfeited_at?: string | null
           player2_forfeited_at?: string | null
           timeout_hours?: number
+          session_id?: string | null
           created_at?: string
           completed_at?: string | null
         }
@@ -169,6 +204,7 @@ export interface Database {
 }
 
 export type Profile = Database['public']['Tables']['profiles']['Row']
+export type GameSession = Database['public']['Tables']['game_sessions']['Row']
 export type Olympics = Database['public']['Tables']['olympics']['Row']
 export type OlympicsEvent = Database['public']['Tables']['olympics_events']['Row']
 export type EventResult = Database['public']['Tables']['event_results']['Row']

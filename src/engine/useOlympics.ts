@@ -5,7 +5,7 @@ import {
   subscribeToOlympics,
   unsubscribeFromOlympics,
 } from '@/lib/realtime'
-import type { Olympics, OlympicsEvent, EventResult, Profile } from '@/lib/database.types'
+import type { Olympics, OlympicsEvent, EventResult, Profile, GameSession } from '@/lib/database.types'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import {
   createOlympics,
@@ -15,6 +15,7 @@ import {
   submitEventResult,
   getOlympicsWithDetails,
   getEventResults,
+  rematchInSession,
 } from './OlympicsEngine'
 import type { MatchResult, EventType, EventOptions } from '@/events/types'
 import { useAppStore } from '@/store/useAppStore'
@@ -27,6 +28,7 @@ interface UseOlympicsReturn {
   player1Profile: Profile | null
   player2Profile: Profile | null
   currentEventResults: EventResult[] | null
+  session: GameSession | null
 
   // Loading states
   isLoading: boolean
@@ -34,6 +36,7 @@ interface UseOlympicsReturn {
   isJoining: boolean
   isStarting: boolean
   isSubmitting: boolean
+  isRematching: boolean
 
   // Actions
   create: (eventSequence: EventType[], mode?: 'async' | 'realtime', eventOptions?: EventOptions) => Promise<Olympics | null>
@@ -41,6 +44,7 @@ interface UseOlympicsReturn {
   start: () => Promise<boolean>
   beginEvent: (eventId?: string) => Promise<OlympicsEvent | null>
   submitResult: (result: MatchResult, eventId?: string) => Promise<boolean>
+  rematch: (eventSequence?: EventType[], eventOptions?: EventOptions) => Promise<Olympics | null>
   refetch: () => void
 
   // Error
@@ -147,6 +151,21 @@ export function useOlympics(olympicsId?: string, options?: UseOlympicsOptions): 
       return results
     },
     enabled: !!currentEvent?.id,
+  })
+
+  // Fetch session if olympics has one
+  const { data: session } = useQuery({
+    queryKey: ['session', olympics?.session_id],
+    queryFn: async () => {
+      if (!olympics?.session_id) return null
+      const { data } = await supabase
+        .from('game_sessions')
+        .select('*')
+        .eq('id', olympics.session_id)
+        .single()
+      return data
+    },
+    enabled: !!olympics?.session_id,
   })
 
   // Subscribe to realtime updates (can be disabled to reduce WebSocket connections)
@@ -275,6 +294,29 @@ export function useOlympics(olympicsId?: string, options?: UseOlympicsOptions): 
     },
   })
 
+  // Rematch mutation (session-aware)
+  const rematchMutation = useMutation({
+    mutationFn: async ({
+      eventSequence,
+      eventOptions,
+    }: {
+      eventSequence?: EventType[]
+      eventOptions?: EventOptions
+    }) => {
+      if (!olympicsId || !olympics) throw new Error('No Olympics to rematch')
+      // Use same events if not specified
+      const events = eventSequence || (olympics.event_sequence as EventType[])
+      const result = await rematchInSession(olympicsId, events, eventOptions)
+      if (result.error) throw result.error
+      return result.olympics
+    },
+    onSuccess: (data) => {
+      if (data) {
+        queryClient.invalidateQueries({ queryKey: ['olympics'] })
+      }
+    },
+  })
+
   // Action wrappers
   const create = useCallback(
     async (eventSequence: EventType[], mode: 'async' | 'realtime' = 'async', eventOptions?: EventOptions) => {
@@ -305,6 +347,13 @@ export function useOlympics(olympicsId?: string, options?: UseOlympicsOptions): 
     [submitResultMutation]
   )
 
+  const rematch = useCallback(
+    async (eventSequence?: EventType[], eventOptions?: EventOptions) => {
+      return rematchMutation.mutateAsync({ eventSequence, eventOptions })
+    },
+    [rematchMutation]
+  )
+
   return {
     olympics,
     events,
@@ -312,16 +361,19 @@ export function useOlympics(olympicsId?: string, options?: UseOlympicsOptions): 
     player1Profile: player1Profile ?? null,
     player2Profile: player2Profile ?? null,
     currentEventResults: currentEventResults ?? null,
+    session: session ?? null,
     isLoading,
     isCreating: createMutation.isPending,
     isJoining: joinMutation.isPending,
     isStarting: startMutation.isPending,
     isSubmitting: submitResultMutation.isPending,
+    isRematching: rematchMutation.isPending,
     create,
     join,
     start,
     beginEvent,
     submitResult,
+    rematch,
     refetch,
     error: error as Error | null,
   }

@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Olympics, OlympicsEvent as DBEvent, Profile } from '@/lib/database.types'
 import { getEvent, isValidEventType } from '@/events/registry'
 import PlayerAvatar from '../shared/PlayerAvatar'
 import EventCard from '../shared/EventCard'
+import ShareOlympics from '../shared/ShareOlympics'
 
 interface WaitingRoomProps {
   olympics: Olympics
@@ -25,7 +26,6 @@ export default function WaitingRoom({
   isStarting,
 }: WaitingRoomProps) {
   const navigate = useNavigate()
-  const [copied, setCopied] = useState(false)
 
   const isPlayer1 = currentUserId === olympics.player1_id
   const hasPlayer2 = !!olympics.player2_id
@@ -39,12 +39,6 @@ export default function WaitingRoom({
       navigate(`/olympics/${olympics.id}/event/0/intro`)
     }
   }, [olympics.status, olympics.id, navigate])
-
-  const copyInviteCode = () => {
-    navigator.clipboard.writeText(olympics.invite_code)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
 
   const handleStart = async () => {
     const success = await onStart()
@@ -61,99 +55,22 @@ export default function WaitingRoom({
 
       {/* Async Mode Info */}
       {isAsync && !hasPlayer2 && isPlayer1 && (
-        <div className="bg-navy-800 rounded-xl p-6 mb-8 text-center">
-          <p className="text-gray-400 mb-2">
-            Play all events first, then share this code to challenge someone:
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <code className="text-3xl font-mono font-bold text-gold tracking-widest">
-              {olympics.invite_code}
-            </code>
-            <button
-              onClick={copyInviteCode}
-              className="p-2 bg-navy-700 rounded-lg hover:bg-navy-600 transition-colors"
-            >
-              {copied ? (
-                <svg
-                  className="w-5 h-5 text-green-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-5 h-5 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-              )}
-            </button>
-          </div>
-          <p className="text-sm text-gray-500 mt-3">
-            Your opponent will play the exact same games for fair competition.
-          </p>
-        </div>
+        <ShareOlympics
+          inviteCode={olympics.invite_code}
+          title="Share after playing"
+          variant="compact"
+          className="mb-8"
+        />
       )}
 
       {/* Realtime Mode - Waiting for Player 2 */}
       {!isAsync && !hasPlayer2 && (
-        <div className="bg-navy-800 rounded-xl p-6 mb-8 text-center">
-          <p className="text-gray-400 mb-3">Share this code with your opponent:</p>
-          <div className="flex items-center justify-center gap-3">
-            <code className="text-3xl font-mono font-bold text-gold tracking-widest">
-              {olympics.invite_code}
-            </code>
-            <button
-              onClick={copyInviteCode}
-              className="p-2 bg-navy-700 rounded-lg hover:bg-navy-600 transition-colors"
-            >
-              {copied ? (
-                <svg
-                  className="w-5 h-5 text-green-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-5 h-5 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-              )}
-            </button>
-          </div>
-        </div>
+        <ShareOlympics
+          inviteCode={olympics.invite_code}
+          title="Share with opponent"
+          variant="compact"
+          className="mb-8"
+        />
       )}
 
       {/* Players */}

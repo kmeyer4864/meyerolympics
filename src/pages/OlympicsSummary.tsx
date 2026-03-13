@@ -4,14 +4,15 @@ import { useOlympics } from '@/engine/useOlympics'
 import { useAppStore } from '@/store/useAppStore'
 import FinalCeremony from '@/components/podium/FinalCeremony'
 import MedalBadge from '@/components/shared/MedalBadge'
+import ShareOlympics from '@/components/shared/ShareOlympics'
 
 export default function OlympicsSummary() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAppStore()
-  const { olympics, player1Profile, player2Profile, isLoading, create } =
+  const { olympics, player1Profile, player2Profile, session, isLoading, rematch, isRematching } =
     useOlympics(id)
-  const [copied, setCopied] = useState(false)
+  const [rematchError, setRematchError] = useState<string | null>(null)
 
   if (!user) {
     return <Navigate to="/auth" replace />
@@ -44,25 +45,23 @@ export default function OlympicsSummary() {
   }
 
   const handleRematch = async () => {
-    // Create a new Olympics with the same events
-    const eventSequence = olympics.event_sequence as string[]
-    const newOlympics = await create(
-      eventSequence as Parameters<typeof create>[0],
-      olympics.mode
-    )
-    if (newOlympics) {
-      navigate(`/olympics/${newOlympics.id}/lobby`)
+    setRematchError(null)
+    try {
+      // Create a session-aware rematch with the same events and opponent
+      const newOlympics = await rematch()
+      if (newOlympics) {
+        navigate(`/olympics/${newOlympics.id}/lobby`)
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create rematch'
+      setRematchError(message)
+      // Clear error after 5 seconds
+      setTimeout(() => setRematchError(null), 5000)
     }
   }
 
   const handleHome = () => {
     navigate('/')
-  }
-
-  const copyInviteCode = () => {
-    navigator.clipboard.writeText(olympics.invite_code)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
   }
 
   // Check if this is async mode and P2 hasn't joined/played yet
@@ -100,52 +99,12 @@ export default function OlympicsSummary() {
             </div>
           </div>
 
-          {/* Invite Code */}
-          <div className="bg-navy-900 rounded-xl p-6 mb-8">
-            <p className="text-gray-400 mb-3">Share this code to challenge someone:</p>
-            <div className="flex items-center justify-center gap-3">
-              <code className="text-4xl font-mono font-bold text-gold tracking-widest">
-                {olympics.invite_code}
-              </code>
-              <button
-                onClick={copyInviteCode}
-                className="p-3 bg-navy-700 rounded-lg hover:bg-navy-600 transition-colors"
-              >
-                {copied ? (
-                  <svg
-                    className="w-6 h-6 text-green-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className="w-6 h-6 text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                )}
-              </button>
-            </div>
-            <p className="text-sm text-gray-500 mt-4">
-              They'll play the exact same games for a fair competition!
-            </p>
-          </div>
+          {/* Share Challenge */}
+          <ShareOlympics
+            inviteCode={olympics.invite_code}
+            title="Challenge a Friend"
+            className="mb-8"
+          />
 
           <button
             onClick={handleHome}
@@ -164,8 +123,11 @@ export default function OlympicsSummary() {
         olympics={olympics}
         player1Profile={player1Profile}
         player2Profile={player2Profile}
+        session={session}
         onRematch={handleRematch}
         onHome={handleHome}
+        isRematching={isRematching}
+        rematchError={rematchError}
       />
     </div>
   )

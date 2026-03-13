@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import type { Olympics, OlympicsEvent as DBOlympicsEvent, EventResult } from '@/lib/database.types'
+import type { Olympics, OlympicsEvent as DBOlympicsEvent, EventResult, GameSession } from '@/lib/database.types'
 import { getEvent, isValidEventType } from '@/events/registry'
 import type { MatchResult, EventType, EventOptions } from '@/events/types'
 
@@ -531,4 +531,174 @@ export async function getEventResults(olympicsEventId: string): Promise<{
   }
 
   return { results, error: null }
+}
+
+// ============================================================================
+// Game Sessions - For persistent rematches
+// ============================================================================
+
+// Generate a session code (same format as invite code)
+export function generateSessionCode(): string {
+  return generateInviteCode()
+}
+
+// Create a new game session
+export async function createSession(
+  player1Id: string,
+  mode: 'async' | 'realtime' = 'realtime'
+): Promise<{ session: GameSession | null; error: Error | null }> {
+  const sessionCode = generateSessionCode()
+
+  try {
+    const { data: session, error } = await queryWithTimeout(
+      () => supabase
+        .from('game_sessions')
+        .insert({
+          session_code: sessionCode,
+          player1_id: player1Id,
+          mode,
+        })
+        .select()
+        .single(),
+      'Create Session'
+    )
+
+    if (error) {
+      return { session: null, error: new Error(error.message) }
+    }
+
+    return { session, error: null }
+  } catch (err) {
+    return { session: null, error: err instanceof Error ? err : new Error(String(err)) }
+  }
+}
+
+// Get session by ID
+export async function getSession(sessionId: string): Promise<{
+  session: GameSession | null
+  error: Error | null
+}> {
+  const { data: session, error } = await supabase
+    .from('game_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .single()
+
+  if (error) {
+    return { session: null, error: new Error(error.message) }
+  }
+
+  return { session, error: null }
+}
+
+// Get all Olympics in a session
+export async function getSessionOlympics(sessionId: string): Promise<{
+  olympics: Olympics[] | null
+  error: Error | null
+}> {
+  const { data: olympics, error } = await supabase
+    .from('olympics')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    return { olympics: null, error: new Error(error.message) }
+  }
+
+  return { olympics, error: null }
+}
+
+// Create a rematch within the same session
+// This creates a new Olympics linked to the existing session with the same opponent
+export async function rematchInSession(
+  originalOlympicsId: string,
+  eventSequence: EventType[],
+  eventOptions?: EventOptions
+): Promise<{ olympics: Olympics | null; error: Error | null }> {
+  // Get the original Olympics to copy settings
+  const { data: originalOlympics, error: fetchError } = await supabase
+    .from('olympics')
+    .select('*')
+    .eq('id', originalOlympicsId)
+    .single()
+
+  if (fetchError || !originalOlympics) {
+    return { olympics: null, error: new Error('Original Olympics not found') }
+  }
+
+  // Ensure both players exist for rematch
+  if (!originalOlympics.player2_id) {
+    return { olympics: null, error: new Error('Cannot rematch without opponent') }
+  }
+
+  let sessionId = originalOlympics.session_id
+
+  // If no session exists, create one
+  if (!sessionId) {
+    const { session, error: sessionError } = await createSession(
+      originalOlympics.player1_id,
+      originalOlympics.mode
+    )
+
+    if (sessionError || !session) {
+      return { olympics: null, error: sessionError || new Error('Failed to create session') }
+    }
+
+    sessionId = session.id
+
+    // Update session with player2
+    await supabase
+      .from('game_sessions')
+      .update({ player2_id: originalOlympics.player2_id })
+      .eq('id', sessionId)
+
+    // Link original Olympics to the new session
+    await supabase
+      .from('olympics')
+      .update({ session_id: sessionId })
+      .eq('id', originalOlympicsId)
+  }
+
+  // Create new Olympics in the same session
+  const inviteCode = generateInviteCode()
+
+  const { data: newOlympics, error: createError } = await supabase
+    .from('olympics')
+    .insert({
+      invite_code: inviteCode,
+      player1_id: originalOlympics.player1_id,
+      player2_id: originalOlympics.player2_id, // Keep same opponent!
+      event_sequence: eventSequence,
+      mode: originalOlympics.mode,
+      session_id: sessionId,
+      status: 'lobby', // Start in lobby so both can see it
+    })
+    .select()
+    .single()
+
+  if (createError || !newOlympics) {
+    return { olympics: null, error: new Error(createError?.message || 'Failed to create rematch') }
+  }
+
+  // Create stub olympics_events for each event in sequence
+  const eventsToInsert = eventSequence.map((eventType, index) => ({
+    olympics_id: newOlympics.id,
+    event_index: index,
+    event_type: eventType,
+    status: 'pending' as const,
+    config: eventOptions?.[eventType] || {},
+  }))
+
+  const { error: eventsError } = await supabase
+    .from('olympics_events')
+    .insert(eventsToInsert)
+
+  if (eventsError) {
+    // Clean up on failure
+    await supabase.from('olympics').delete().eq('id', newOlympics.id)
+    return { olympics: null, error: new Error(eventsError.message) }
+  }
+
+  return { olympics: newOlympics, error: null }
 }
