@@ -15,6 +15,7 @@ type RealtimeMessageType =
   | 'PLAYER_GUESS'
   | 'SYNC_REQUEST'
   | 'SYNC_RESPONSE'
+  | 'LOCATION_ADVANCE'
 
 interface RealtimeMessage {
   type: RealtimeMessageType
@@ -50,7 +51,12 @@ interface UseGeographyRealtimeReturn {
   advanceToNextLocation: () => void
   setReady: () => void
   isComplete: boolean
+  // Error handling
+  connectionError: string | null
+  retryConnection: () => void
 }
+
+const CONNECTION_TIMEOUT_MS = 15000 // 15 seconds
 
 export function useGeographyRealtime({
   eventId,
@@ -67,14 +73,18 @@ export function useGeographyRealtime({
   const [opponentGuesses, setOpponentGuesses] = useState<GuessResult[]>([])
   const [waitingForOpponent, setWaitingForOpponent] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
+  const [connectionError, setConnectionError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
   const channelRef = useRef<RealtimeChannel | null>(null)
   const gameCompletedRef = useRef(false)
+  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Use refs for values needed in message handler to avoid stale closures
   const currentLocationIndexRef = useRef(currentLocationIndex)
   const myGuessesRef = useRef(myGuesses)
   const opponentGuessesRef = useRef(opponentGuesses)
+  const myReadyRef = useRef(myReady)
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -89,6 +99,10 @@ export function useGeographyRealtime({
     opponentGuessesRef.current = opponentGuesses
   }, [opponentGuesses])
 
+  useEffect(() => {
+    myReadyRef.current = myReady
+  }, [myReady])
+
   // Get current guesses for the current location
   const myCurrentGuess = myGuesses.find(g => g.locationIndex === currentLocationIndex) ?? null
   const opponentCurrentGuess = opponentGuesses.find(g => g.locationIndex === currentLocationIndex) ?? null
@@ -96,6 +110,7 @@ export function useGeographyRealtime({
   // Broadcast a message to opponent
   const broadcastMessage = useCallback((message: RealtimeMessage) => {
     if (channelRef.current) {
+      console.log('[Geography] Broadcasting:', message.type)
       channelRef.current.send({
         type: 'broadcast',
         event: 'message',
@@ -104,9 +119,39 @@ export function useGeographyRealtime({
     }
   }, [])
 
-  // Set up realtime channel
-  useEffect(() => {
+  // Request sync from other players
+  const requestSync = useCallback(() => {
+    console.log('[Geography] Requesting sync from other players')
+    broadcastMessage({
+      type: 'SYNC_REQUEST',
+      playerId,
+      timestamp: Date.now(),
+      payload: {},
+    })
+  }, [playerId, broadcastMessage])
+
+  // Clean up connection timeout
+  const clearConnectionTimeout = useCallback(() => {
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current)
+      connectionTimeoutRef.current = null
+    }
+  }, [])
+
+  // Setup connection
+  const setupConnection = useCallback(() => {
     const channelName = `geography:${eventId}`
+    console.log('[Geography] Setting up connection to channel:', channelName)
+
+    setConnectionError(null)
+
+    // Set connection timeout
+    clearConnectionTimeout()
+    connectionTimeoutRef.current = setTimeout(() => {
+      console.error('[Geography] Connection timeout')
+      setConnectionError('Connection timed out. Please try again.')
+    }, CONNECTION_TIMEOUT_MS)
+
     const channel = supabase.channel(channelName, {
       config: {
         presence: { key: playerId },
@@ -115,25 +160,48 @@ export function useGeographyRealtime({
 
     channelRef.current = channel
 
-    // Handle presence
+    // Handle presence sync
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState()
       const players = Object.keys(state)
-      console.log('[Geography] Presence sync - players:', players)
-
-      setIsConnected(true)
+      console.log('[Geography] Presence sync - players:', players, 'my id:', playerId)
 
       if (players.length >= 2) {
+        console.log('[Geography] Both players detected via sync')
         setOpponentConnected(true)
+        // Request sync when we detect opponent
+        setTimeout(() => requestSync(), 500)
       } else {
         setOpponentConnected(false)
       }
     })
 
-    channel.on('presence', { event: 'leave' }, () => {
-      const state = channel.presenceState()
-      const players = Object.keys(state)
-      setOpponentConnected(players.length >= 2)
+    // Handle player join events
+    channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
+      console.log('[Geography] Player joined:', key, newPresences)
+      if (key !== playerId) {
+        console.log('[Geography] Opponent joined!')
+        setOpponentConnected(true)
+        // Send our ready state if we're already ready
+        if (myReadyRef.current) {
+          setTimeout(() => {
+            broadcastMessage({
+              type: 'PLAYER_READY',
+              playerId,
+              timestamp: Date.now(),
+              payload: { ready: true },
+            })
+          }, 300)
+        }
+      }
+    })
+
+    // Handle player leave events
+    channel.on('presence', { event: 'leave' }, ({ key }) => {
+      console.log('[Geography] Player left:', key)
+      if (key !== playerId) {
+        setOpponentConnected(false)
+      }
     })
 
     // Handle broadcast messages
@@ -143,13 +211,17 @@ export function useGeographyRealtime({
       // Ignore our own messages
       if (message.playerId === playerId) return
 
+      console.log('[Geography] Received message:', message.type)
+
       switch (message.type) {
         case 'PLAYER_READY':
+          console.log('[Geography] Opponent is ready')
           setOpponentReady(true)
           break
 
         case 'PLAYER_GUESS': {
           const guessPayload = message.payload as unknown as PlayerGuessPayload
+          console.log('[Geography] Opponent guess for location:', guessPayload.locationIndex)
 
           setOpponentGuesses(prev => {
             // Check if we already have a guess for this location
@@ -168,8 +240,16 @@ export function useGeographyRealtime({
           break
         }
 
+        case 'LOCATION_ADVANCE': {
+          // Opponent is advancing - make sure we're in sync
+          const advancePayload = message.payload as { locationIndex: number }
+          console.log('[Geography] Opponent advanced to location:', advancePayload.locationIndex)
+          break
+        }
+
         case 'SYNC_REQUEST':
-          // Opponent is requesting state sync
+          // Opponent is requesting state sync - send our state
+          console.log('[Geography] Responding to sync request')
           channelRef.current?.send({
             type: 'broadcast',
             event: 'message',
@@ -180,6 +260,7 @@ export function useGeographyRealtime({
               payload: {
                 currentLocationIndex: currentLocationIndexRef.current,
                 guesses: myGuessesRef.current,
+                ready: myReadyRef.current,
               },
             },
           })
@@ -190,8 +271,17 @@ export function useGeographyRealtime({
           const syncPayload = message.payload as {
             currentLocationIndex: number
             guesses: GuessResult[]
+            ready: boolean
           }
+          console.log('[Geography] Received sync response:', syncPayload)
+
+          // Update opponent guesses
           setOpponentGuesses(syncPayload.guesses)
+
+          // Update opponent ready state
+          if (syncPayload.ready) {
+            setOpponentReady(true)
+          }
           break
         }
       }
@@ -199,24 +289,61 @@ export function useGeographyRealtime({
 
     // Subscribe to channel
     channel.subscribe(async (status, err) => {
-      console.log('[Geography] Channel subscription status:', status, err || '')
+      console.log('[Geography] Channel subscription status:', status, err ? `Error: ${err.message}` : '')
+
       if (status === 'SUBSCRIBED') {
-        console.log('[Geography] Tracking presence...')
-        await channel.track({
-          online_at: new Date().toISOString(),
-        })
-        console.log('[Geography] Presence tracked')
-        setIsConnected(true)
+        clearConnectionTimeout()
+        console.log('[Geography] Successfully subscribed, tracking presence...')
+
+        try {
+          await channel.track({
+            online_at: new Date().toISOString(),
+          })
+          console.log('[Geography] Presence tracked successfully')
+          setIsConnected(true)
+          setConnectionError(null)
+        } catch (trackError) {
+          console.error('[Geography] Error tracking presence:', trackError)
+          setConnectionError('Failed to join game session. Please try again.')
+        }
+      } else if (status === 'CHANNEL_ERROR') {
+        clearConnectionTimeout()
+        console.error('[Geography] Channel error:', err)
+        setConnectionError('Connection error. Please try again.')
+      } else if (status === 'TIMED_OUT') {
+        clearConnectionTimeout()
+        console.error('[Geography] Channel timed out')
+        setConnectionError('Connection timed out. Please try again.')
+      } else if (status === 'CLOSED') {
+        console.log('[Geography] Channel closed')
+        setIsConnected(false)
       }
     })
 
     return () => {
+      clearConnectionTimeout()
+      console.log('[Geography] Cleaning up channel')
       channel.unsubscribe()
     }
-  }, [eventId, playerId])
+  }, [eventId, playerId, broadcastMessage, requestSync, clearConnectionTimeout])
+
+  // Set up realtime channel
+  useEffect(() => {
+    const cleanup = setupConnection()
+    return cleanup
+  }, [setupConnection, retryCount])
+
+  // Retry connection handler
+  const retryConnection = useCallback(() => {
+    console.log('[Geography] Retrying connection...')
+    setConnectionError(null)
+    setIsConnected(false)
+    setRetryCount(c => c + 1)
+  }, [])
 
   // Set ready status
   const setReady = useCallback(() => {
+    console.log('[Geography] Setting myself as ready')
     setMyReady(true)
     broadcastMessage({
       type: 'PLAYER_READY',
@@ -242,6 +369,8 @@ export function useGeographyRealtime({
       guess: { lat, lng },
       distance,
     }
+
+    console.log('[Geography] Submitting guess for location:', currentLocationIndex, 'distance:', distance)
 
     setMyGuesses(prev => [...prev, guessResult])
 
@@ -269,6 +398,7 @@ export function useGeographyRealtime({
   // Advance to next location
   const advanceToNextLocation = useCallback(() => {
     const nextIndex = currentLocationIndex + 1
+    console.log('[Geography] Advancing to location:', nextIndex)
 
     if (nextIndex >= locations.length) {
       // Game complete
@@ -280,8 +410,16 @@ export function useGeographyRealtime({
     } else {
       setCurrentLocationIndex(nextIndex)
       setWaitingForOpponent(false)
+
+      // Broadcast advance to keep in sync
+      broadcastMessage({
+        type: 'LOCATION_ADVANCE',
+        playerId,
+        timestamp: Date.now(),
+        payload: { locationIndex: nextIndex },
+      })
     }
-  }, [currentLocationIndex, locations.length, myGuesses, onGameComplete])
+  }, [currentLocationIndex, locations.length, myGuesses, onGameComplete, playerId, broadcastMessage])
 
   return {
     currentLocationIndex,
@@ -297,5 +435,7 @@ export function useGeographyRealtime({
     advanceToNextLocation,
     setReady,
     isComplete,
+    connectionError,
+    retryConnection,
   }
 }

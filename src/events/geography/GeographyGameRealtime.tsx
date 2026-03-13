@@ -56,6 +56,8 @@ export default function GeographyGameRealtime({
     advanceToNextLocation,
     setReady,
     isComplete,
+    connectionError,
+    retryConnection,
   } = useGeographyRealtime({
     eventId,
     playerId,
@@ -93,12 +95,30 @@ export default function GeographyGameRealtime({
     )
   }
 
+  // Connection error state
+  if (connectionError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96">
+        <div className="text-5xl mb-4">⚠️</div>
+        <h2 className="text-2xl font-bold text-white mb-2">Connection Error</h2>
+        <p className="text-gray-400 mb-6 text-center max-w-md">{connectionError}</p>
+        <button
+          onClick={retryConnection}
+          className="px-8 py-4 bg-gold text-navy-900 font-bold text-lg rounded-lg hover:bg-gold/90 transition-colors"
+        >
+          Try Again
+        </button>
+      </div>
+    )
+  }
+
   // Connection state
   if (!isConnected) {
     return (
       <div className="flex flex-col items-center justify-center h-96">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gold mb-4"></div>
-        <p className="text-gray-400">Connecting...</p>
+        <p className="text-gray-400">Connecting to game server...</p>
+        <p className="text-gray-500 text-sm mt-2">This may take a few seconds</p>
       </div>
     )
   }
@@ -110,6 +130,10 @@ export default function GeographyGameRealtime({
         <div className="text-5xl mb-4">🌍</div>
         <h2 className="text-2xl font-bold text-white mb-2">Waiting for Opponent</h2>
         <p className="text-gray-400 mb-4">Your opponent needs to connect...</p>
+        <div className="flex items-center gap-2 text-green-400 mb-4">
+          <span className="animate-pulse">●</span>
+          <span className="text-sm">You are connected</span>
+        </div>
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gold"></div>
       </div>
     )

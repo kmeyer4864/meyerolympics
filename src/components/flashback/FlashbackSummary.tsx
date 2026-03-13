@@ -92,6 +92,12 @@ export default function FlashbackSummary({
   const isP1Gold = goldWinnerId === player1Id
   const isTie = goldWinnerId === null
 
+  // Debug logging
+  console.log('[FlashbackSummary] player1Result:', player1Result)
+  console.log('[FlashbackSummary] player2Result:', player2Result)
+  console.log('[FlashbackSummary] p1 metadata:', player1Result?.metadata)
+  console.log('[FlashbackSummary] p2 metadata:', player2Result?.metadata)
+
   const p1Placements = (player1Result?.metadata?.placements as PlacementResult[]) || []
   const p2Placements = (player2Result?.metadata?.placements as PlacementResult[]) || []
   const p1Strikes = (player1Result?.metadata?.strikes as number) ?? 0
@@ -101,8 +107,26 @@ export default function FlashbackSummary({
   const puzzleId = (player1Result?.metadata?.puzzleId as string) || (player2Result?.metadata?.puzzleId as string)
   const puzzle = puzzleId ? getPuzzleById(puzzleId) : null
 
-  // Build combined placements list (both players have same events)
-  const maxPlacements = Math.max(p1Placements.length, p2Placements.length)
+  console.log('[FlashbackSummary] p1Placements:', p1Placements.length, p1Placements)
+  console.log('[FlashbackSummary] p2Placements:', p2Placements.length, p2Placements)
+
+  // Build a combined list of all unique event IDs from both players
+  // This ensures we show all events even if one player's data is missing
+  const allEventIds = new Set<string>()
+  p1Placements.forEach(p => allEventIds.add(p.eventId))
+  p2Placements.forEach(p => allEventIds.add(p.eventId))
+  const eventIdList = Array.from(allEventIds)
+
+  // Sort by year for consistent display
+  const sortedEventIds = eventIdList.sort((a, b) => {
+    const p1a = p1Placements.find(p => p.eventId === a)
+    const p2a = p2Placements.find(p => p.eventId === a)
+    const p1b = p1Placements.find(p => p.eventId === b)
+    const p2b = p2Placements.find(p => p.eventId === b)
+    const yearA = p1a?.correctYear || p2a?.correctYear || 0
+    const yearB = p1b?.correctYear || p2b?.correctYear || 0
+    return yearA - yearB
+  })
 
   return (
     <div className="w-full max-w-3xl mx-auto">
@@ -159,14 +183,39 @@ export default function FlashbackSummary({
 
       {/* Placements comparison */}
       <div className="bg-navy-800/50 rounded-lg p-4 mb-4">
-        {Array.from({ length: maxPlacements }).map((_, index) => (
-          <PlacementRow
-            key={index}
-            eventIndex={index}
-            p1Placement={p1Placements[index]}
-            p2Placement={p2Placements[index]}
-          />
-        ))}
+        {sortedEventIds.length > 0 ? (
+          sortedEventIds.map((eventId, index) => {
+            const p1Placement = p1Placements.find(p => p.eventId === eventId)
+            const p2Placement = p2Placements.find(p => p.eventId === eventId)
+            return (
+              <PlacementRow
+                key={eventId}
+                eventIndex={index}
+                p1Placement={p1Placement}
+                p2Placement={p2Placement}
+              />
+            )
+          })
+        ) : (
+          // Fallback for games without detailed placement data
+          <div className="text-center py-4">
+            <p className="text-gray-400 mb-4">Detailed placement comparison not available</p>
+            <div className="grid grid-cols-2 gap-8">
+              <div>
+                <p className="text-sm text-gray-500">Player 1</p>
+                <p className="text-xl font-bold text-white">
+                  {8 - p1Strikes} / 8 correct
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Player 2</p>
+                <p className="text-xl font-bold text-white">
+                  {8 - p2Strikes} / 8 correct
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Stats row */}
