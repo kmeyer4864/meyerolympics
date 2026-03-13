@@ -99,12 +99,7 @@ function CountryLayer({
     const isWrong = wrongGuesses.includes(countryId)
     const isCorrect = correctCountry === countryId
 
-    // Bind tooltip with country name (only show on hover)
-    layer.bindTooltip(countryName, {
-      permanent: false,
-      direction: 'top',
-      className: 'country-tooltip',
-    })
+    // No tooltip - players must identify countries by shape alone
 
     layer.on({
       mouseover: (e) => {
@@ -205,20 +200,6 @@ export default function CountryMap({
 
   return (
     <div className="w-full aspect-[2/1] rounded-lg overflow-hidden border border-navy-600">
-      <style>{`
-        .country-tooltip {
-          background: rgba(15, 23, 42, 0.95);
-          border: 1px solid #fbbf24;
-          border-radius: 4px;
-          color: white;
-          font-weight: 600;
-          padding: 4px 8px;
-          font-size: 12px;
-        }
-        .country-tooltip::before {
-          border-top-color: #fbbf24 !important;
-        }
-      `}</style>
       <MapContainer
         center={[20, 0]}
         zoom={2}
