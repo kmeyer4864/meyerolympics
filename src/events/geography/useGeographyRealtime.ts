@@ -56,8 +56,6 @@ interface UseGeographyRealtimeReturn {
   retryConnection: () => void
 }
 
-const CONNECTION_TIMEOUT_MS = 15000 // 15 seconds
-
 export function useGeographyRealtime({
   eventId,
   playerId,
@@ -74,11 +72,9 @@ export function useGeographyRealtime({
   const [waitingForOpponent, setWaitingForOpponent] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
   const [connectionError, setConnectionError] = useState<string | null>(null)
-  const [retryCount, setRetryCount] = useState(0)
 
   const channelRef = useRef<RealtimeChannel | null>(null)
   const gameCompletedRef = useRef(false)
-  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Use refs for values needed in message handler to avoid stale closures
   const currentLocationIndexRef = useRef(currentLocationIndex)
@@ -118,36 +114,9 @@ export function useGeographyRealtime({
     }
   }, [])
 
-  // Request sync from other players
-  const requestSync = useCallback(() => {
-    broadcastMessage({
-      type: 'SYNC_REQUEST',
-      playerId,
-      timestamp: Date.now(),
-      payload: {},
-    })
-  }, [playerId, broadcastMessage])
-
-  // Clean up connection timeout
-  const clearConnectionTimeout = useCallback(() => {
-    if (connectionTimeoutRef.current) {
-      clearTimeout(connectionTimeoutRef.current)
-      connectionTimeoutRef.current = null
-    }
-  }, [])
-
-  // Setup connection
-  const setupConnection = useCallback(() => {
+  // Set up realtime channel (following Hold'em pattern)
+  useEffect(() => {
     const channelName = `geography:${eventId}`
-
-    setConnectionError(null)
-
-    // Set connection timeout
-    clearConnectionTimeout()
-    connectionTimeoutRef.current = setTimeout(() => {
-      setConnectionError('Connection timed out. Please try again.')
-    }, CONNECTION_TIMEOUT_MS)
-
     const channel = supabase.channel(channelName, {
       config: {
         presence: { key: playerId },
@@ -161,38 +130,20 @@ export function useGeographyRealtime({
       const state = channel.presenceState()
       const players = Object.keys(state)
 
+      setIsConnected(true)
+
       if (players.length >= 2) {
         setOpponentConnected(true)
-        // Request sync when we detect opponent
-        setTimeout(() => requestSync(), 500)
       } else {
         setOpponentConnected(false)
       }
     })
 
-    // Handle player join events
-    channel.on('presence', { event: 'join' }, ({ key }) => {
-      if (key !== playerId) {
-        setOpponentConnected(true)
-        // Send our ready state if we're already ready
-        if (myReadyRef.current) {
-          setTimeout(() => {
-            broadcastMessage({
-              type: 'PLAYER_READY',
-              playerId,
-              timestamp: Date.now(),
-              payload: { ready: true },
-            })
-          }, 300)
-        }
-      }
-    })
-
     // Handle player leave events
-    channel.on('presence', { event: 'leave' }, ({ key }) => {
-      if (key !== playerId) {
-        setOpponentConnected(false)
-      }
+    channel.on('presence', { event: 'leave' }, () => {
+      const state = channel.presenceState()
+      const players = Object.keys(state)
+      setOpponentConnected(players.length >= 2)
     })
 
     // Handle broadcast messages
@@ -272,45 +223,23 @@ export function useGeographyRealtime({
     // Subscribe to channel
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        clearConnectionTimeout()
-
-        try {
-          await channel.track({
-            online_at: new Date().toISOString(),
-          })
-          setIsConnected(true)
-          setConnectionError(null)
-        } catch {
-          setConnectionError('Failed to join game session. Please try again.')
-        }
-      } else if (status === 'CHANNEL_ERROR') {
-        clearConnectionTimeout()
-        setConnectionError('Connection error. Please try again.')
-      } else if (status === 'TIMED_OUT') {
-        clearConnectionTimeout()
-        setConnectionError('Connection timed out. Please try again.')
-      } else if (status === 'CLOSED') {
-        setIsConnected(false)
+        await channel.track({
+          online_at: new Date().toISOString(),
+        })
+        setIsConnected(true)
+        setConnectionError(null)
       }
     })
 
     return () => {
-      clearConnectionTimeout()
       channel.unsubscribe()
     }
-  }, [eventId, playerId, broadcastMessage, requestSync, clearConnectionTimeout])
-
-  // Set up realtime channel
-  useEffect(() => {
-    const cleanup = setupConnection()
-    return cleanup
-  }, [setupConnection, retryCount])
+  }, [eventId, playerId])
 
   // Retry connection handler
   const retryConnection = useCallback(() => {
-    setConnectionError(null)
-    setIsConnected(false)
-    setRetryCount(c => c + 1)
+    // Force a re-render by clearing state and redirecting
+    window.location.reload()
   }, [])
 
   // Set ready status
