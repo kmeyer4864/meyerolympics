@@ -18,7 +18,7 @@ export default function EventResult() {
     player1Profile,
     player2Profile,
     isLoading,
-  } = useOlympics(id)
+  } = useOlympics(id, { disableRealtime: true }) // Polling handles sync, reduce WebSocket connections
 
   const eventIndex = parseInt(idx ?? '0', 10)
 

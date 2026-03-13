@@ -16,7 +16,7 @@ export default function EventPlay() {
     submitResult,
     isSubmitting,
     isLoading,
-  } = useOlympics(id)
+  } = useOlympics(id, { disableRealtime: true }) // Disable to reduce WebSocket connections during games
 
   const eventIndex = parseInt(idx ?? '0', 10)
 

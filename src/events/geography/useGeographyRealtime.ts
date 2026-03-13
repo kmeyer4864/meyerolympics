@@ -220,19 +220,36 @@ export function useGeographyRealtime({
       }
     })
 
-    // Subscribe to channel
-    channel.subscribe(async (status) => {
+    // Subscribe to channel with detailed error logging
+    channel.subscribe(async (status, err) => {
+      console.log('[Geography] Subscription status:', status, err?.message || '')
+
       if (status === 'SUBSCRIBED') {
-        await channel.track({
-          online_at: new Date().toISOString(),
-        })
-        setIsConnected(true)
-        setConnectionError(null)
+        try {
+          await channel.track({
+            online_at: new Date().toISOString(),
+          })
+          setIsConnected(true)
+          setConnectionError(null)
+        } catch (trackErr) {
+          console.error('[Geography] Failed to track presence:', trackErr)
+          setConnectionError('Failed to join game session')
+        }
+      } else if (status === 'CHANNEL_ERROR') {
+        console.error('[Geography] Channel error:', err)
+        setConnectionError(`Connection error: ${err?.message || 'Unknown error'}`)
+      } else if (status === 'TIMED_OUT') {
+        console.error('[Geography] Connection timed out')
+        setConnectionError('Connection timed out. Please check your network.')
+      } else if (status === 'CLOSED') {
+        console.log('[Geography] Channel closed')
+        setIsConnected(false)
       }
     })
 
     return () => {
-      channel.unsubscribe()
+      console.log('[Geography] Cleaning up channel')
+      supabase.removeChannel(channel)
     }
   }, [eventId, playerId])
 

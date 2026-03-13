@@ -194,7 +194,8 @@ export function useHoldemRealtime({
     })
 
     return () => {
-      channel.unsubscribe()
+      console.log('[Holdem] Cleaning up channel')
+      supabase.removeChannel(channel)
     }
   }, [eventId, playerId])
 

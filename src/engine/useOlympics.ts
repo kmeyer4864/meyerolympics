@@ -47,10 +47,16 @@ interface UseOlympicsReturn {
   error: Error | null
 }
 
-export function useOlympics(olympicsId?: string): UseOlympicsReturn {
+interface UseOlympicsOptions {
+  /** Disable realtime subscription to reduce WebSocket connections */
+  disableRealtime?: boolean
+}
+
+export function useOlympics(olympicsId?: string, options?: UseOlympicsOptions): UseOlympicsReturn {
   const queryClient = useQueryClient()
   const { user, setCurrentOlympics, setCurrentOlympicsEvents } = useAppStore()
   const [_channel, setChannel] = useState<RealtimeChannel | null>(null)
+  const disableRealtime = options?.disableRealtime ?? false
 
   // Fetch Olympics data
   const {
@@ -143,9 +149,9 @@ export function useOlympics(olympicsId?: string): UseOlympicsReturn {
     enabled: !!currentEvent?.id,
   })
 
-  // Subscribe to realtime updates
+  // Subscribe to realtime updates (can be disabled to reduce WebSocket connections)
   useEffect(() => {
-    if (!olympicsId) return
+    if (!olympicsId || disableRealtime) return
 
     const newChannel = subscribeToOlympics(
       olympicsId,
@@ -183,7 +189,7 @@ export function useOlympics(olympicsId?: string): UseOlympicsReturn {
         unsubscribeFromOlympics(newChannel)
       }
     }
-  }, [olympicsId, queryClient])
+  }, [olympicsId, queryClient, disableRealtime])
 
   // Create Olympics mutation
   const createMutation = useMutation({
