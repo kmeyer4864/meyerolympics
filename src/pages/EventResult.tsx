@@ -170,13 +170,6 @@ export default function EventResult() {
       }
     : null
 
-  // Debug logging for flashback
-  console.log('[EventResult] thisEventResults:', thisEventResults)
-  console.log('[EventResult] p1Result:', p1Result)
-  console.log('[EventResult] p2Result:', p2Result)
-  console.log('[EventResult] player1MatchResult:', player1MatchResult)
-  console.log('[EventResult] player2MatchResult:', player2MatchResult)
-
   // Use FlashbackSummary for flashback events
   const isFlashback = dbEvent.event_type === 'flashback'
 

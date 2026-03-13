@@ -92,12 +92,6 @@ export default function FlashbackSummary({
   const isP1Gold = goldWinnerId === player1Id
   const isTie = goldWinnerId === null
 
-  // Debug logging
-  console.log('[FlashbackSummary] player1Result:', player1Result)
-  console.log('[FlashbackSummary] player2Result:', player2Result)
-  console.log('[FlashbackSummary] p1 metadata:', player1Result?.metadata)
-  console.log('[FlashbackSummary] p2 metadata:', player2Result?.metadata)
-
   const p1Placements = (player1Result?.metadata?.placements as PlacementResult[]) || []
   const p2Placements = (player2Result?.metadata?.placements as PlacementResult[]) || []
   const p1Strikes = (player1Result?.metadata?.strikes as number) ?? 0
@@ -106,9 +100,6 @@ export default function FlashbackSummary({
   const p2Time = (player2Result?.metadata?.elapsedMs as number) ?? 0
   const puzzleId = (player1Result?.metadata?.puzzleId as string) || (player2Result?.metadata?.puzzleId as string)
   const puzzle = puzzleId ? getPuzzleById(puzzleId) : null
-
-  console.log('[FlashbackSummary] p1Placements:', p1Placements.length, p1Placements)
-  console.log('[FlashbackSummary] p2Placements:', p2Placements.length, p2Placements)
 
   // Build a combined list of all unique event IDs from both players
   // This ensures we show all events even if one player's data is missing
