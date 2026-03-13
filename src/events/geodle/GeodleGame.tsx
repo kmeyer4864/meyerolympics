@@ -1,6 +1,6 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import type { EventComponentProps, MatchResult } from '../types'
-import { getCountryById } from './countryData'
+import { fetchCountryById, type GeodleCountry } from './countryData'
 import CountryMap from './CountryMap'
 import { ElapsedTimer } from '@/components/shared/CountdownTimer'
 
@@ -14,10 +14,20 @@ export default function GeodleGame({
   onComplete,
 }: EventComponentProps) {
   const countryId = puzzleMetadata?.countryId as string | undefined
+  const [targetCountry, setTargetCountry] = useState<GeodleCountry | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const targetCountry = useMemo(() => {
-    if (!countryId) return null
-    return getCountryById(countryId)
+  // Fetch country data from Supabase
+  useEffect(() => {
+    if (!countryId) {
+      setIsLoading(false)
+      return
+    }
+
+    fetchCountryById(countryId).then(country => {
+      setTargetCountry(country || null)
+      setIsLoading(false)
+    })
   }, [countryId])
 
   const [wrongGuesses, setWrongGuesses] = useState<string[]>([])
@@ -91,10 +101,19 @@ export default function GeodleGame({
   }, [isComplete, targetCountry, wrongGuesses, startTime, onComplete])
 
   // Loading state
-  if (!targetCountry) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gold"></div>
+      </div>
+    )
+  }
+
+  // Country not found
+  if (!targetCountry) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-red-400">Country not found. Please try again.</div>
       </div>
     )
   }

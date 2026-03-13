@@ -1,8 +1,11 @@
 import type { OlympicsEvent, MatchResult } from '../types'
 import GeodleGame from './GeodleGame'
-import { getAllCountryIds } from './countryData'
+import { getAllCountryIds, preloadCountries, isCacheReady } from './countryData'
 import { selectUnseenRandom, markAsSeen } from '@/lib/seenContentTracker'
 import { tieBreakByTime } from '../types'
+
+// Preload countries on module load
+preloadCountries().catch(err => console.error('Failed to preload geodle countries:', err))
 
 export const geodleEvent: OlympicsEvent = {
   id: 'geodle',
@@ -56,8 +59,15 @@ export const geodleEvent: OlympicsEvent = {
   generatePuzzleMetadata(options?: Record<string, string>): Record<string, unknown> {
     const userId = options?.userId
 
-    // Get all available country IDs from our data
-    const validCountryIds = getAllCountryIds()
+    // Get all available country IDs from cache
+    // The cache should be preloaded when the module is imported
+    let validCountryIds = getAllCountryIds()
+
+    // Fallback if cache isn't ready (shouldn't happen normally)
+    if (!isCacheReady() || validCountryIds.length === 0) {
+      console.warn('Geodle cache not ready, using fallback')
+      validCountryIds = ['norway', 'peru', 'ethiopia', 'new-zealand', 'hungary']
+    }
 
     // If we have a userId, use seen content tracking to avoid repeats
     let countryId: string

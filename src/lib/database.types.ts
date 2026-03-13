@@ -41,6 +41,29 @@ export interface Database {
           created_at?: string
         }
       }
+      geodle_countries: {
+        Row: {
+          id: string
+          name: string
+          hints: string[]
+          enabled: boolean
+          created_at: string
+        }
+        Insert: {
+          id: string
+          name: string
+          hints: string[]
+          enabled?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          hints?: string[]
+          enabled?: boolean
+          created_at?: string
+        }
+      }
       game_sessions: {
         Row: {
           id: string
