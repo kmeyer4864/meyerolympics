@@ -14,17 +14,18 @@ export interface DailyPuzzleResult {
 }
 
 /**
- * Fetch today's published puzzle if one exists.
- * Returns null if no puzzle is scheduled for today.
+ * Fetch today's puzzle if one exists.
+ * Looks for published or scheduled puzzles for today's date.
  */
 export async function getTodaysPuzzle(): Promise<DailyPuzzleResult> {
   const today = new Date().toISOString().split('T')[0]
 
+  // Look for published or scheduled puzzles for today
   const { data, error } = await supabase
     .from('geodle_daily_puzzles')
     .select('*')
     .eq('play_date', today)
-    .eq('status', 'published')
+    .in('status', ['published', 'scheduled'])
     .single()
 
   if (error) {
@@ -113,7 +114,7 @@ export async function hasTodaysPuzzle(): Promise<boolean> {
     .from('geodle_daily_puzzles')
     .select('id', { count: 'exact', head: true })
     .eq('play_date', today)
-    .eq('status', 'published')
+    .in('status', ['published', 'scheduled'])
 
   if (error) {
     console.warn('Error checking for daily puzzle:', error.message)
