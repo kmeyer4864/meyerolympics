@@ -52,6 +52,19 @@ function CountryLayer({
   const geoJsonRef = useRef<L.GeoJSON | null>(null)
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null)
 
+  // Use refs to keep handlers updated without recreating GeoJSON
+  const onCountrySelectRef = useRef(onCountrySelect)
+  const wrongGuessesRef = useRef(wrongGuesses)
+  const correctCountryRef = useRef(correctCountry)
+  const disabledRef = useRef(disabled)
+
+  useEffect(() => {
+    onCountrySelectRef.current = onCountrySelect
+    wrongGuessesRef.current = wrongGuesses
+    correctCountryRef.current = correctCountry
+    disabledRef.current = disabled
+  }, [onCountrySelect, wrongGuesses, correctCountry, disabled])
+
   const getCountryStyle = useCallback((feature: Feature<Geometry> | undefined) => {
     if (!feature?.properties) return {}
 
@@ -93,17 +106,17 @@ function CountryLayer({
     }
   }, [wrongGuesses, correctCountry, hoveredCountry, disabled])
 
+  // Use stable callback that reads from refs to avoid stale closures in GeoJSON event handlers
   const onEachCountry = useCallback((feature: Feature<Geometry>, layer: L.Layer) => {
     const countryName = feature.properties?.ADMIN || feature.properties?.name || 'Unknown'
     const countryId = normalizeCountryName(countryName)
-    const isWrong = wrongGuesses.includes(countryId)
-    const isCorrect = correctCountry === countryId
 
     // No tooltip - players must identify countries by shape alone
 
     layer.on({
       mouseover: (e) => {
-        if (!disabled && !isWrong && !correctCountry) {
+        const isWrong = wrongGuessesRef.current.includes(countryId)
+        if (!disabledRef.current && !isWrong && !correctCountryRef.current) {
           setHoveredCountry(countryId)
           const target = e.target as L.Path
           target.setStyle({
@@ -121,12 +134,14 @@ function CountryLayer({
         }
       },
       click: () => {
-        if (!disabled && !isWrong && !isCorrect && !correctCountry) {
-          onCountrySelect(countryId, countryName)
+        const isWrong = wrongGuessesRef.current.includes(countryId)
+        const isCorrect = correctCountryRef.current === countryId
+        if (!disabledRef.current && !isWrong && !isCorrect && !correctCountryRef.current) {
+          onCountrySelectRef.current(countryId, countryName)
         }
       },
     })
-  }, [wrongGuesses, correctCountry, disabled, onCountrySelect])
+  }, []) // Empty deps - handlers read from refs
 
   // Update styles when state changes
   useEffect(() => {

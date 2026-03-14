@@ -25,6 +25,13 @@ export default function GeodleGame({
     }
 
     fetchCountryById(countryId).then(country => {
+      if (country) {
+        // Debug: Log hints count to help identify data issues
+        console.log(`[Geodle] Loaded country "${country.name}" with ${country.hints?.length || 0} hints`)
+        if (!country.hints || country.hints.length < 6) {
+          console.warn(`[Geodle] Expected 6 hints but got ${country.hints?.length || 0}`)
+        }
+      }
       setTargetCountry(country || null)
       setIsLoading(false)
     })
@@ -40,8 +47,11 @@ export default function GeodleGame({
 
   // Revealed hints (all hints up to and including current)
   const revealedHints = useMemo(() => {
-    if (!targetCountry) return []
-    return targetCountry.hints.slice(0, currentHintIndex + 1)
+    if (!targetCountry || !targetCountry.hints) return []
+    const hints = targetCountry.hints.slice(0, currentHintIndex + 1)
+    // Debug: Log when hints change
+    console.log(`[Geodle] Showing ${hints.length} hints (wrongGuesses: ${currentHintIndex}, total available: ${targetCountry.hints.length})`)
+    return hints
   }, [targetCountry, currentHintIndex])
 
   const handleCountrySelect = useCallback((selectedCountryId: string, _countryName: string) => {
