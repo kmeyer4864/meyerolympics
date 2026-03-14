@@ -3,49 +3,49 @@ import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet'
 import L from 'leaflet'
 import type { Feature, FeatureCollection, Geometry } from 'geojson'
 import 'leaflet/dist/leaflet.css'
+import { normalizeCountryName, type ProximityLevel } from './countryRelations'
+
+// Guess result with proximity information
+export interface GuessResult {
+  countryId: string
+  countryName: string
+  proximity: ProximityLevel
+}
 
 interface CountryMapProps {
   onCountrySelect: (countryId: string, countryName: string) => void
-  wrongGuesses: string[]
+  guessHistory: GuessResult[]
   correctCountry: string | null
   disabled: boolean
 }
 
-// Country name to ID mapping (lowercase, handle variations)
-function normalizeCountryName(name: string): string {
-  const normalized = name.toLowerCase().trim()
-
-  // Handle common variations
-  const mappings: Record<string, string> = {
-    'united states of america': 'usa',
-    'united states': 'usa',
-    'united kingdom': 'uk',
-    'great britain': 'uk',
-    'russian federation': 'russia',
-    'republic of korea': 'south-korea',
-    'korea, republic of': 'south-korea',
-    'south korea': 'south-korea',
-    "korea, democratic people's republic of": 'north-korea',
-    'north korea': 'north-korea',
-    'viet nam': 'vietnam',
-    'new zealand': 'new-zealand',
-    'south africa': 'south-africa',
+// Get fill color based on proximity
+function getProximityColor(proximity: ProximityLevel): string {
+  switch (proximity) {
+    case 'correct':
+      return '#22c55e' // green-500
+    case 'neighbor':
+      return '#facc15' // yellow-400
+    case 'same_continent':
+      return '#f97316' // orange-500
+    case 'wrong_continent':
+      return '#ef4444' // red-500
+    default:
+      return '#ef4444'
   }
-
-  return mappings[normalized] || normalized.replace(/\s+/g, '-')
 }
 
 // Component to handle country interactions
 function CountryLayer({
   data,
   onCountrySelect,
-  wrongGuesses,
+  guessHistory,
   correctCountry,
   disabled,
 }: {
   data: FeatureCollection
   onCountrySelect: (countryId: string, countryName: string) => void
-  wrongGuesses: string[]
+  guessHistory: GuessResult[]
   correctCountry: string | null
   disabled: boolean
 }) {
@@ -54,16 +54,16 @@ function CountryLayer({
 
   // Use refs to keep handlers updated without recreating GeoJSON
   const onCountrySelectRef = useRef(onCountrySelect)
-  const wrongGuessesRef = useRef(wrongGuesses)
+  const guessHistoryRef = useRef(guessHistory)
   const correctCountryRef = useRef(correctCountry)
   const disabledRef = useRef(disabled)
 
   useEffect(() => {
     onCountrySelectRef.current = onCountrySelect
-    wrongGuessesRef.current = wrongGuesses
+    guessHistoryRef.current = guessHistory
     correctCountryRef.current = correctCountry
     disabledRef.current = disabled
-  }, [onCountrySelect, wrongGuesses, correctCountry, disabled])
+  }, [onCountrySelect, guessHistory, correctCountry, disabled])
 
   const getCountryStyle = useCallback((feature: Feature<Geometry> | undefined) => {
     if (!feature?.properties) return {}
@@ -72,7 +72,7 @@ function CountryLayer({
     const countryId = normalizeCountryName(countryName)
 
     const isCorrect = correctCountry === countryId
-    const isWrong = wrongGuesses.includes(countryId)
+    const guessResult = guessHistory.find(g => g.countryId === countryId)
     const isHovered = hoveredCountry === countryId
 
     let fillColor = '#334155' // slate-700 default
@@ -85,11 +85,22 @@ function CountryLayer({
       fillOpacity = 0.8
       weight = 2
       color = '#16a34a'
-    } else if (isWrong) {
-      fillColor = '#ef4444' // red-500
+    } else if (guessResult) {
+      fillColor = getProximityColor(guessResult.proximity)
       fillOpacity = 0.7
       weight = 1
-      color = '#dc2626'
+      // Adjust border color based on proximity
+      switch (guessResult.proximity) {
+        case 'neighbor':
+          color = '#eab308' // yellow-500
+          break
+        case 'same_continent':
+          color = '#ea580c' // orange-600
+          break
+        case 'wrong_continent':
+          color = '#dc2626' // red-600
+          break
+      }
     } else if (isHovered && !disabled) {
       fillColor = '#fbbf24' // amber-400 / gold
       fillOpacity = 0.8
@@ -104,7 +115,7 @@ function CountryLayer({
       color,
       opacity: 1,
     }
-  }, [wrongGuesses, correctCountry, hoveredCountry, disabled])
+  }, [guessHistory, correctCountry, hoveredCountry, disabled])
 
   // Use stable callback that reads from refs to avoid stale closures in GeoJSON event handlers
   const onEachCountry = useCallback((feature: Feature<Geometry>, layer: L.Layer) => {
@@ -115,8 +126,8 @@ function CountryLayer({
 
     layer.on({
       mouseover: (e) => {
-        const isWrong = wrongGuessesRef.current.includes(countryId)
-        if (!disabledRef.current && !isWrong && !correctCountryRef.current) {
+        const alreadyGuessed = guessHistoryRef.current.some(g => g.countryId === countryId)
+        if (!disabledRef.current && !alreadyGuessed && !correctCountryRef.current) {
           setHoveredCountry(countryId)
           const target = e.target as L.Path
           target.setStyle({
@@ -134,9 +145,9 @@ function CountryLayer({
         }
       },
       click: () => {
-        const isWrong = wrongGuessesRef.current.includes(countryId)
+        const alreadyGuessed = guessHistoryRef.current.some(g => g.countryId === countryId)
         const isCorrect = correctCountryRef.current === countryId
-        if (!disabledRef.current && !isWrong && !isCorrect && !correctCountryRef.current) {
+        if (!disabledRef.current && !alreadyGuessed && !isCorrect && !correctCountryRef.current) {
           onCountrySelectRef.current(countryId, countryName)
         }
       },
@@ -148,7 +159,7 @@ function CountryLayer({
     if (geoJsonRef.current) {
       geoJsonRef.current.setStyle(getCountryStyle as L.StyleFunction)
     }
-  }, [wrongGuesses, correctCountry, getCountryStyle])
+  }, [guessHistory, correctCountry, getCountryStyle])
 
   return (
     <GeoJSON
@@ -162,7 +173,7 @@ function CountryLayer({
 
 export default function CountryMap({
   onCountrySelect,
-  wrongGuesses,
+  guessHistory,
   correctCountry,
   disabled,
 }: CountryMapProps) {
@@ -234,7 +245,7 @@ export default function CountryMap({
         <CountryLayer
           data={countriesData}
           onCountrySelect={onCountrySelect}
-          wrongGuesses={wrongGuesses}
+          guessHistory={guessHistory}
           correctCountry={correctCountry}
           disabled={disabled}
         />
@@ -242,14 +253,22 @@ export default function CountryMap({
 
       {/* Legend */}
       <div className="relative">
-        <div className="absolute bottom-2 right-2 flex gap-3 text-xs text-gray-400 bg-navy-900/90 px-3 py-1.5 rounded z-[1000]">
+        <div className="absolute bottom-2 right-2 flex flex-wrap gap-2 text-xs text-gray-400 bg-navy-900/90 px-3 py-1.5 rounded z-[1000]">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 rounded bg-slate-600" />
             <span>Available</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 rounded bg-red-500" />
-            <span>Wrong</span>
+            <span>Wrong Continent</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded bg-orange-500" />
+            <span>Same Continent</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded bg-yellow-400" />
+            <span>Neighbor</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 rounded bg-green-500" />

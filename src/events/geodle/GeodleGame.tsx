@@ -1,114 +1,172 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import type { EventComponentProps, MatchResult } from '../types'
-import { fetchCountryById, type GeodleCountry } from './countryData'
-import CountryMap from './CountryMap'
+import { getCountryByName, type GeodleCountry } from './countryData'
+import { getProximity } from './countryRelations'
+import CountryMap, { type GuessResult } from './CountryMap'
 import { ElapsedTimer } from '@/components/shared/CountdownTimer'
 
-// Note: CountryMap uses normalizeCountryName internally to convert GeoJSON country names
-// to our country IDs (e.g., "United States of America" -> "usa")
+const TOTAL_COUNTRIES = 5
+const MAX_GUESSES_PER_COUNTRY = 10
+const HINTS_PER_COUNTRY = 4
 
-const MAX_GUESSES = 6
+interface CountryRound {
+  country: GeodleCountry
+  guessHistory: GuessResult[]
+  guessCount: number
+  completed: boolean
+  failed: boolean
+}
+
+// Type for puzzle metadata countries
+interface PuzzleCountry {
+  name: string
+  hintTypes: string[]
+}
 
 export default function GeodleGame({
   puzzleMetadata,
   onComplete,
 }: EventComponentProps) {
-  const countryId = puzzleMetadata?.countryId as string | undefined
-  const [targetCountry, setTargetCountry] = useState<GeodleCountry | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  // Extract countries with their hint types from puzzle metadata
+  const puzzleCountries = puzzleMetadata?.countries as PuzzleCountry[] | undefined
 
-  // Fetch country data from Supabase
+  // Initialize rounds state
+  const [rounds, setRounds] = useState<CountryRound[]>([])
+  const [currentRoundIndex, setCurrentRoundIndex] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
+  const [startTime] = useState<Date>(new Date())
+  const [showingTransition, setShowingTransition] = useState(false)
+  const [gameComplete, setGameComplete] = useState(false)
+  const [shouldSubmitResults, setShouldSubmitResults] = useState(false)
+
+  // Initialize countries from puzzle metadata
   useEffect(() => {
-    if (!countryId) {
+    if (!puzzleCountries || puzzleCountries.length !== TOTAL_COUNTRIES) {
+      console.error('[Geodle] Invalid puzzle metadata:', puzzleCountries)
       setIsLoading(false)
       return
     }
 
-    fetchCountryById(countryId).then(country => {
+    // Load country data for all 5 countries with their specific hint types
+    const loadedRounds: CountryRound[] = []
+    for (const { name, hintTypes } of puzzleCountries) {
+      const country = getCountryByName(name, hintTypes)
       if (country) {
-        // Debug: Log hints count to help identify data issues
-        console.log(`[Geodle] Loaded country "${country.name}" with ${country.hints?.length || 0} hints`)
-        if (!country.hints || country.hints.length < 6) {
-          console.warn(`[Geodle] Expected 6 hints but got ${country.hints?.length || 0}`)
-        }
-      }
-      setTargetCountry(country || null)
-      setIsLoading(false)
-    })
-  }, [countryId])
-
-  const [wrongGuesses, setWrongGuesses] = useState<string[]>([])
-  const [correctCountry, setCorrectCountry] = useState<string | null>(null)
-  const [startTime] = useState<Date>(new Date())
-  const [isComplete, setIsComplete] = useState(false)
-
-  // Current hint index (0 = first hint shown, up to 5)
-  const currentHintIndex = wrongGuesses.length
-
-  // Revealed hints (all hints up to and including current)
-  const revealedHints = useMemo(() => {
-    if (!targetCountry || !targetCountry.hints) return []
-    const hints = targetCountry.hints.slice(0, currentHintIndex + 1)
-    // Debug: Log when hints change
-    console.log(`[Geodle] Showing ${hints.length} hints (wrongGuesses: ${currentHintIndex}, total available: ${targetCountry.hints.length})`)
-    return hints
-  }, [targetCountry, currentHintIndex])
-
-  const handleCountrySelect = useCallback((selectedCountryId: string, _countryName: string) => {
-    if (isComplete || !targetCountry) return
-    if (wrongGuesses.includes(selectedCountryId)) return
-
-    if (selectedCountryId === targetCountry.id) {
-      // Correct guess!
-      setCorrectCountry(selectedCountryId)
-      setIsComplete(true)
-
-      const elapsedMs = Date.now() - startTime.getTime()
-      const roundsTaken = wrongGuesses.length + 1 // +1 for the correct guess
-
-      const result: MatchResult = {
-        score: Math.round(((MAX_GUESSES - roundsTaken + 1) / MAX_GUESSES) * 100),
-        rawValue: roundsTaken, // Lower is better
-        completedAt: new Date().toISOString(),
-        metadata: {
-          countryId: targetCountry.id,
-          countryName: targetCountry.name,
-          rounds: roundsTaken,
-          elapsedMs,
-          wrongGuesses,
-        },
-      }
-
-      onComplete(result)
-    } else {
-      // Wrong guess
-      const newWrongGuesses = [...wrongGuesses, selectedCountryId]
-      setWrongGuesses(newWrongGuesses)
-
-      // Check if out of guesses
-      if (newWrongGuesses.length >= MAX_GUESSES) {
-        setIsComplete(true)
-
-        const elapsedMs = Date.now() - startTime.getTime()
-
-        const result: MatchResult = {
-          score: 0, // Failed to guess
-          rawValue: MAX_GUESSES + 1, // Worse than any successful guess
-          completedAt: new Date().toISOString(),
-          metadata: {
-            countryId: targetCountry.id,
-            countryName: targetCountry.name,
-            rounds: MAX_GUESSES + 1, // Indicates failure
-            elapsedMs,
-            wrongGuesses: newWrongGuesses,
-            failed: true,
-          },
-        }
-
-        onComplete(result)
+        loadedRounds.push({
+          country,
+          guessHistory: [],
+          guessCount: 0,
+          completed: false,
+          failed: false,
+        })
+      } else {
+        console.warn(`[Geodle] Could not load country: ${name}`)
       }
     }
-  }, [isComplete, targetCountry, wrongGuesses, startTime, onComplete])
+
+    if (loadedRounds.length === TOTAL_COUNTRIES) {
+      setRounds(loadedRounds)
+    } else {
+      console.error('[Geodle] Failed to load all countries')
+    }
+    setIsLoading(false)
+  }, [puzzleCountries])
+
+  // Current round data
+  const currentRound = rounds[currentRoundIndex]
+  const targetCountry = currentRound?.country
+
+  // Total guesses across all rounds
+  const totalGuesses = useMemo(() => {
+    return rounds.reduce((sum, round) => sum + round.guessCount, 0)
+  }, [rounds])
+
+  // Handle country selection
+  const handleCountrySelect = useCallback((guessedCountryId: string, guessedCountryName: string) => {
+    if (!targetCountry || showingTransition || gameComplete) return
+
+    // Calculate proximity
+    const proximity = getProximity(guessedCountryName, targetCountry.name)
+    const isCorrect = proximity === 'correct'
+
+    // Create guess result
+    const guessResult: GuessResult = {
+      countryId: guessedCountryId,
+      countryName: guessedCountryName,
+      proximity,
+    }
+
+    // Update current round
+    setRounds(prevRounds => {
+      const newRounds = [...prevRounds]
+      const round = { ...newRounds[currentRoundIndex] }
+      round.guessHistory = [...round.guessHistory, guessResult]
+      round.guessCount = round.guessCount + 1
+
+      if (isCorrect) {
+        round.completed = true
+      } else if (round.guessCount >= MAX_GUESSES_PER_COUNTRY) {
+        round.failed = true
+        round.completed = true
+      }
+
+      newRounds[currentRoundIndex] = round
+      return newRounds
+    })
+
+    // Handle correct guess or max guesses reached
+    if (isCorrect || rounds[currentRoundIndex].guessCount + 1 >= MAX_GUESSES_PER_COUNTRY) {
+      // Show transition screen
+      setShowingTransition(true)
+
+      setTimeout(() => {
+        if (currentRoundIndex + 1 >= TOTAL_COUNTRIES) {
+          // Game complete - trigger result submission via effect
+          setGameComplete(true)
+          setShouldSubmitResults(true)
+        } else {
+          // Move to next country
+          setCurrentRoundIndex(prev => prev + 1)
+          setShowingTransition(false)
+        }
+      }, 2000) // 2 second transition
+    }
+  }, [targetCountry, showingTransition, gameComplete, currentRoundIndex, rounds])
+
+  // Submit results when game is complete (via useEffect to ensure state is updated)
+  useEffect(() => {
+    if (!shouldSubmitResults) return
+
+    const elapsedMs = Date.now() - startTime.getTime()
+    const totalGuesses = rounds.reduce((sum, r) => sum + r.guessCount, 0)
+    const failedCount = rounds.filter(r => r.failed).length
+
+    // Score: lower is better. Add penalty for failed countries
+    const rawScore = totalGuesses + (failedCount * MAX_GUESSES_PER_COUNTRY)
+
+    // Normalize to 0-100: perfect = 5 guesses (one per country), worst = 50 + penalties
+    const maxPossibleScore = TOTAL_COUNTRIES * MAX_GUESSES_PER_COUNTRY
+    const normalizedScore = Math.max(0, Math.round(100 * (1 - rawScore / maxPossibleScore)))
+
+    const result: MatchResult = {
+      score: normalizedScore,
+      rawValue: rawScore,
+      completedAt: new Date().toISOString(),
+      metadata: {
+        totalGuesses,
+        countriesGuessed: TOTAL_COUNTRIES - failedCount,
+        failedCountries: failedCount,
+        elapsedMs,
+        rounds: rounds.map(r => ({
+          country: r.country.name,
+          guesses: r.guessCount,
+          failed: r.failed,
+        })),
+      },
+    }
+
+    onComplete(result)
+  }, [shouldSubmitResults, rounds, startTime, onComplete])
 
   // Loading state
   if (isLoading) {
@@ -119,24 +177,106 @@ export default function GeodleGame({
     )
   }
 
-  // Country not found
-  if (!targetCountry) {
+  // Error state
+  if (!targetCountry || rounds.length !== TOTAL_COUNTRIES) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="text-red-400">Country not found. Please try again.</div>
+        <div className="text-red-400">Failed to load game. Please try again.</div>
       </div>
     )
   }
 
+  // Transition screen between countries
+  if (showingTransition) {
+    const wasCorrect = currentRound.guessHistory.some(g => g.proximity === 'correct')
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className={`p-8 rounded-xl border animate-fade-in ${
+          wasCorrect
+            ? 'bg-green-900/30 border-green-600'
+            : 'bg-red-900/30 border-red-600'
+        }`}>
+          <div className="text-center">
+            <div className="text-5xl mb-4">{wasCorrect ? '🎉' : '😔'}</div>
+            <h3 className={`text-2xl font-bold mb-2 ${
+              wasCorrect ? 'text-green-400' : 'text-red-400'
+            }`}>
+              {wasCorrect ? 'Correct!' : 'Out of Guesses'}
+            </h3>
+            <p className="text-gray-300 mb-2">
+              The country was <span className="text-gold font-bold">{targetCountry.name}</span>
+            </p>
+            {wasCorrect && (
+              <p className="text-gray-400">
+                Found in <span className="text-gold font-bold">{currentRound.guessHistory.length}</span> guess{currentRound.guessHistory.length !== 1 ? 'es' : ''}
+              </p>
+            )}
+            <div className="mt-4 text-gray-500">
+              {currentRoundIndex + 1 < TOTAL_COUNTRIES ? (
+                <p>Moving to country {currentRoundIndex + 2} of {TOTAL_COUNTRIES}...</p>
+              ) : (
+                <p>Calculating final score...</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Game complete screen
+  if (gameComplete) {
+    const successfulRounds = rounds.filter(r => !r.failed).length
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="p-8 rounded-xl border bg-navy-800 border-navy-600 animate-fade-in">
+          <div className="text-center">
+            <div className="text-5xl mb-4">🏆</div>
+            <h3 className="text-2xl font-bold text-gold mb-4">Game Complete!</h3>
+            <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto mb-6">
+              <div className="bg-navy-700 rounded-lg p-4">
+                <div className="text-3xl font-bold text-gold">{totalGuesses}</div>
+                <div className="text-gray-400 text-sm">Total Guesses</div>
+              </div>
+              <div className="bg-navy-700 rounded-lg p-4">
+                <div className="text-3xl font-bold text-green-400">{successfulRounds}/{TOTAL_COUNTRIES}</div>
+                <div className="text-gray-400 text-sm">Countries Found</div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {rounds.map((round, idx) => (
+                <div key={idx} className={`flex justify-between items-center p-2 rounded ${
+                  round.failed ? 'bg-red-900/30' : 'bg-green-900/30'
+                }`}>
+                  <span className="text-gray-300">{round.country.name}</span>
+                  <span className={round.failed ? 'text-red-400' : 'text-green-400'}>
+                    {round.failed ? 'Failed' : `${round.guessCount} guess${round.guessCount !== 1 ? 'es' : ''}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Main game UI
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-xl font-bold text-white">Guess the Country</h2>
+          <h2 className="text-xl font-bold text-white">
+            Country {currentRoundIndex + 1} of {TOTAL_COUNTRIES}
+          </h2>
           <p className="text-gray-400 text-sm">
-            Guess {wrongGuesses.length + 1} of {MAX_GUESSES}
+            Guess {currentRound.guessCount + 1} of {MAX_GUESSES_PER_COUNTRY}
           </p>
+        </div>
+        <div className="text-center">
+          <div className="text-xs text-gray-500 mb-1">Total Guesses</div>
+          <div className="text-2xl font-bold text-gold">{totalGuesses}</div>
         </div>
         <div className="text-center">
           <div className="text-xs text-gray-500 mb-1">Time</div>
@@ -144,41 +284,37 @@ export default function GeodleGame({
         </div>
       </div>
 
-      {/* Round indicators */}
+      {/* Progress indicators */}
       <div className="flex gap-2 mb-4 justify-center">
-        {[...Array(MAX_GUESSES)].map((_, i) => (
+        {rounds.map((round, idx) => (
           <div
-            key={i}
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-              i < wrongGuesses.length
-                ? 'bg-red-500 text-white'
-                : correctCountry && i === wrongGuesses.length
+            key={idx}
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+              round.completed && !round.failed
                 ? 'bg-green-500 text-white'
-                : i === wrongGuesses.length
-                ? 'bg-gold text-navy-900'
+                : round.failed
+                ? 'bg-red-500 text-white'
+                : idx === currentRoundIndex
+                ? 'bg-gold text-navy-900 ring-2 ring-gold ring-offset-2 ring-offset-navy-900'
                 : 'bg-navy-700 text-gray-400'
             }`}
           >
-            {i + 1}
+            {round.completed ? (round.failed ? '✗' : '✓') : idx + 1}
           </div>
         ))}
       </div>
 
       {/* Hints section */}
-      <div className="mb-6 p-4 bg-navy-800 rounded-xl border border-navy-600">
+      <div className="mb-4 p-4 bg-navy-800 rounded-xl border border-navy-600">
         <h3 className="text-gold font-semibold mb-3 flex items-center gap-2">
           <span className="text-lg">💡</span>
           Hints
         </h3>
-        <div className="space-y-2">
-          {revealedHints.map((hint, index) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {targetCountry.hints.slice(0, HINTS_PER_COUNTRY).map((hint, index) => (
             <div
               key={index}
-              className={`p-3 rounded-lg ${
-                index === revealedHints.length - 1
-                  ? 'bg-gold/20 border border-gold/30'
-                  : 'bg-navy-700/50'
-              }`}
+              className="p-3 rounded-lg bg-navy-700/50"
             >
               <div className="flex items-start gap-2">
                 <span className="text-gold font-bold text-sm">#{index + 1}</span>
@@ -187,85 +323,45 @@ export default function GeodleGame({
             </div>
           ))}
         </div>
-        {!isComplete && wrongGuesses.length < MAX_GUESSES - 1 && (
+        {currentRound.guessCount >= HINTS_PER_COUNTRY && (
           <p className="text-gray-500 text-xs mt-3 text-center">
-            {MAX_GUESSES - wrongGuesses.length - 1} more hint{MAX_GUESSES - wrongGuesses.length - 1 !== 1 ? 's' : ''} available if you guess wrong
+            Use the colored feedback on the map to narrow down your search!
           </p>
         )}
       </div>
 
       {/* Interactive Map */}
-      {!isComplete && (
-        <>
-          <CountryMap
-            onCountrySelect={handleCountrySelect}
-            wrongGuesses={wrongGuesses}
-            correctCountry={correctCountry}
-            disabled={isComplete}
-          />
-          <p className="mt-4 text-sm text-gray-500 text-center">
-            Click on a country to make your guess
-          </p>
-        </>
-      )}
+      <CountryMap
+        onCountrySelect={handleCountrySelect}
+        guessHistory={currentRound.guessHistory}
+        correctCountry={currentRound.completed ? targetCountry.id : null}
+        disabled={currentRound.completed}
+      />
+      <p className="mt-2 text-sm text-gray-500 text-center">
+        Click on a country to guess • Colors show how close you are
+      </p>
 
-      {/* Wrong guesses list */}
-      {wrongGuesses.length > 0 && !isComplete && (
+      {/* Guess history for current country */}
+      {currentRound.guessHistory.length > 0 && (
         <div className="mt-4">
-          <p className="text-gray-500 text-sm mb-2">Wrong guesses:</p>
+          <p className="text-gray-500 text-sm mb-2">Your guesses:</p>
           <div className="flex flex-wrap gap-2">
-            {wrongGuesses.map((id) => (
+            {currentRound.guessHistory.map((guess, idx) => (
               <span
-                key={id}
-                className="px-3 py-1 bg-red-500/20 text-red-400 rounded text-sm"
+                key={idx}
+                className={`px-3 py-1 rounded text-sm font-medium ${
+                  guess.proximity === 'correct'
+                    ? 'bg-green-500/30 text-green-400 border border-green-500'
+                    : guess.proximity === 'neighbor'
+                    ? 'bg-yellow-500/30 text-yellow-400 border border-yellow-500'
+                    : guess.proximity === 'same_continent'
+                    ? 'bg-orange-500/30 text-orange-400 border border-orange-500'
+                    : 'bg-red-500/30 text-red-400 border border-red-500'
+                }`}
               >
-                {id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                {guess.countryName}
               </span>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Game complete */}
-      {isComplete && (
-        <div className={`mt-6 p-6 rounded-xl border animate-fade-in ${
-          correctCountry
-            ? 'bg-green-900/30 border-green-600'
-            : 'bg-red-900/30 border-red-600'
-        }`}>
-          <div className="text-center">
-            {correctCountry ? (
-              <>
-                <div className="text-5xl mb-4">🎉</div>
-                <h3 className="text-2xl font-bold text-green-400 mb-2">
-                  Correct!
-                </h3>
-                <p className="text-gray-300 mb-4">
-                  You guessed <span className="text-gold font-bold">{targetCountry.name}</span> in{' '}
-                  <span className="text-gold font-bold">{wrongGuesses.length + 1}</span> round{wrongGuesses.length + 1 !== 1 ? 's' : ''}!
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="text-5xl mb-4">😔</div>
-                <h3 className="text-2xl font-bold text-red-400 mb-2">
-                  Out of Guesses
-                </h3>
-                <p className="text-gray-300 mb-4">
-                  The answer was <span className="text-gold font-bold">{targetCountry.name}</span>
-                </p>
-              </>
-            )}
-
-            {/* Show the map with result */}
-            <div className="mt-4">
-              <CountryMap
-                onCountrySelect={() => {}}
-                wrongGuesses={wrongGuesses}
-                correctCountry={targetCountry.id}
-                disabled={true}
-              />
-            </div>
           </div>
         </div>
       )}

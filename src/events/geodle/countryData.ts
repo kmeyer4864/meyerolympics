@@ -1,106 +1,107 @@
-import { supabase } from '@/lib/supabase'
+// Country data for Geodle game
+// Uses local country-json data instead of Supabase
+
+import { generateHints, hasCountryData } from './hintGenerator'
+import { getContinent, getAllCountryNames, getRandomCountries } from './countryRelations'
 
 export interface GeodleCountry {
-  id: string
-  name: string
-  // 6 hints from hardest to easiest
-  hints: [string, string, string, string, string, string]
+  id: string           // Normalized country name (lowercase, hyphenated)
+  name: string         // Display name
+  continent: string    // For proximity feedback
+  hints: string[]      // Dynamically generated hints
 }
 
-// Cache for countries fetched from Supabase
-let countriesCache: GeodleCountry[] | null = null
-let cacheTimestamp: number = 0
-const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
-
-// Fetch all countries from Supabase
-async function fetchCountriesFromDB(): Promise<GeodleCountry[]> {
-  const now = Date.now()
-
-  // Return cached data if still valid
-  if (countriesCache && (now - cacheTimestamp) < CACHE_TTL_MS) {
-    return countriesCache
-  }
-
-  const { data, error } = await supabase
-    .from('geodle_countries')
-    .select('id, name, hints')
-    .eq('enabled', true)
-
-  if (error) {
-    console.error('Error fetching geodle countries:', error)
-    // Fall back to cache if available
-    if (countriesCache) return countriesCache
-    return []
-  }
-
-  // Convert database rows to GeodleCountry format
-  countriesCache = (data || []).map(row => ({
-    id: row.id,
-    name: row.name,
-    hints: row.hints as [string, string, string, string, string, string],
-  }))
-  cacheTimestamp = now
-
-  return countriesCache
+// Convert country name to ID format
+export function countryNameToId(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/['']/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
 }
 
-// Get a country by ID (async version for game runtime)
-export async function fetchCountryById(id: string): Promise<GeodleCountry | undefined> {
-  const countries = await fetchCountriesFromDB()
-  return countries.find(c => c.id === id)
+// Convert ID back to approximate name (for display)
+export function idToCountryName(id: string): string {
+  return id
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }
 
-// Get all country IDs (async version for puzzle generation)
-export async function fetchAllCountryIds(): Promise<string[]> {
-  const countries = await fetchCountriesFromDB()
-  return countries.map(c => c.id)
-}
-
-// Synchronous version using cache (for compatibility with existing code)
-// This should only be called after fetchCountriesFromDB has been called at least once
+// Get country by ID
 export function getCountryById(id: string): GeodleCountry | undefined {
-  if (!countriesCache) {
-    console.warn('getCountryById called before cache populated')
+  // Find matching country name
+  const allNames = getAllCountryNames()
+  const targetId = id.toLowerCase()
+
+  const matchedName = allNames.find(name => countryNameToId(name) === targetId)
+
+  if (!matchedName || !hasCountryData(matchedName)) {
     return undefined
   }
-  return countriesCache.find(c => c.id === id)
+
+  const continent = getContinent(matchedName)
+  if (!continent) return undefined
+
+  return {
+    id: countryNameToId(matchedName),
+    name: matchedName,
+    continent,
+    hints: generateHints(matchedName, 4),
+  }
 }
 
+// Get country by name
+// If hintTypes provided, use those specific hints (for fairness between players)
+export function getCountryByName(name: string, hintTypes?: string[]): GeodleCountry | undefined {
+  if (!hasCountryData(name)) {
+    return undefined
+  }
+
+  const continent = getContinent(name)
+  if (!continent) return undefined
+
+  return {
+    id: countryNameToId(name),
+    name,
+    continent,
+    hints: generateHints(name, 4, hintTypes),
+  }
+}
+
+// Get all available country IDs
 export function getAllCountryIds(): string[] {
-  if (!countriesCache) {
-    console.warn('getAllCountryIds called before cache populated')
-    return []
-  }
-  return countriesCache.map(c => c.id)
+  return getAllCountryNames().map(countryNameToId)
 }
 
-export function getAllCountryNames(): string[] {
-  if (!countriesCache) {
-    console.warn('getAllCountryNames called before cache populated')
-    return []
-  }
-  return countriesCache.map(c => c.name)
+// Get random countries for a game round
+export function getRandomGameCountries(count: number = 5): GeodleCountry[] {
+  const names = getRandomCountries(count)
+  return names
+    .map(name => getCountryByName(name))
+    .filter((c): c is GeodleCountry => c !== undefined)
 }
 
-// Preload countries into cache - call this during app initialization
-export async function preloadCountries(): Promise<void> {
-  await fetchCountriesFromDB()
+// For backwards compatibility with existing code
+export async function fetchCountryById(id: string): Promise<GeodleCountry | undefined> {
+  return getCountryById(id)
 }
 
-// For random selection (used by puzzle generation)
-export function getRandomCountry(exclude: string[] = []): GeodleCountry | undefined {
-  if (!countriesCache || countriesCache.length === 0) {
-    console.warn('getRandomCountry called before cache populated')
-    return undefined
-  }
-  const available = countriesCache.filter(c => !exclude.includes(c.id))
-  if (available.length === 0) {
-    return countriesCache[Math.floor(Math.random() * countriesCache.length)]
-  }
-  return available[Math.floor(Math.random() * available.length)]
+export async function fetchAllCountryIds(): Promise<string[]> {
+  return getAllCountryIds()
 }
 
-// Check if cache is populated
 export function isCacheReady(): boolean {
-  return countriesCache !== null && countriesCache.length > 0
+  return true // No async loading needed with local data
+}
+
+export async function preloadCountries(): Promise<void> {
+  // No-op - data is already bundled
+}
+
+// Get a random single country (for backwards compatibility)
+export function getRandomCountry(_exclude: string[] = []): GeodleCountry | undefined {
+  const countries = getRandomGameCountries(1)
+  return countries[0]
 }

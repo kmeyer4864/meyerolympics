@@ -1,85 +1,73 @@
 import type { OlympicsEvent, MatchResult } from '../types'
 import GeodleGame from './GeodleGame'
-import { getAllCountryIds, preloadCountries, isCacheReady } from './countryData'
-import { selectUnseenRandom, markAsSeen } from '@/lib/seenContentTracker'
+import { getRandomGameCountries } from './countryData'
+import { getRandomHintTypes } from './hintGenerator'
 import { tieBreakByTime } from '../types'
 
-// Preload countries on module load
-preloadCountries().catch(err => console.error('Failed to preload geodle countries:', err))
+const TOTAL_COUNTRIES = 5
+const HINTS_PER_COUNTRY = 4
 
 export const geodleEvent: OlympicsEvent = {
   id: 'geodle',
   name: 'Geodle',
-  description: 'Guess the country from progressive hints. Fewer guesses wins!',
-  icon: '🌐',
-  estimatedMinutes: 3,
+  description: 'Guess 5 countries from hints and map feedback. Fewer total guesses wins!',
+  icon: '🌍',
+  estimatedMinutes: 5,
   supportsAsync: true,
   supportsRealtime: false,
   winCondition: 'lowest_score',
   rules: [
-    'You will receive hints about a mystery country',
-    'Hints start difficult and get easier with each wrong guess',
+    `Identify ${TOTAL_COUNTRIES} countries in a row`,
+    'Each country starts with 4 demographic hints',
     'Click on the map to guess which country it is',
-    'You have 6 guesses maximum',
-    'Fewer guesses = better score',
+    'Colors show how close your guess is:',
+    '  🔴 Red = Wrong continent',
+    '  🟠 Orange = Same continent',
+    '  🟡 Yellow = Neighboring country',
+    '  🟢 Green = Correct!',
+    'You have 10 guesses per country',
+    'Lowest total guesses across all 5 countries wins',
     'Ties are broken by time',
   ],
 
   compareResults(r1: MatchResult, r2: MatchResult): 'p1' | 'p2' | 'tie' {
-    const rounds1 = r1.metadata.rounds as number
-    const rounds2 = r2.metadata.rounds as number
+    const guesses1 = r1.rawValue as number
+    const guesses2 = r2.rawValue as number
 
-    // Lower rounds wins
-    if (rounds1 < rounds2) return 'p1'
-    if (rounds2 < rounds1) return 'p2'
+    // Lower total guesses wins
+    if (guesses1 < guesses2) return 'p1'
+    if (guesses2 < guesses1) return 'p2'
 
     // Tiebreaker: faster time wins
     return tieBreakByTime(r1, r2)
   },
 
   formatScore(result: MatchResult): string {
-    const rounds = result.metadata.rounds as number
-    const failed = result.metadata.failed as boolean
-
-    if (failed) {
-      return 'Failed'
-    }
-
+    const totalGuesses = result.metadata.totalGuesses as number
+    const countriesGuessed = result.metadata.countriesGuessed as number
     const elapsedMs = result.metadata.elapsedMs as number
     const seconds = Math.floor(elapsedMs / 1000)
     const minutes = Math.floor(seconds / 60)
     const remainingSeconds = seconds % 60
 
-    if (rounds === 1) {
-      return `1 guess (${minutes}:${String(remainingSeconds).padStart(2, '0')})`
+    if (countriesGuessed === TOTAL_COUNTRIES) {
+      return `${totalGuesses} guesses (${minutes}:${String(remainingSeconds).padStart(2, '0')})`
     }
-    return `${rounds} guesses (${minutes}:${String(remainingSeconds).padStart(2, '0')})`
+    return `${countriesGuessed}/${TOTAL_COUNTRIES} found, ${totalGuesses} guesses`
   },
 
-  generatePuzzleMetadata(options?: Record<string, string>): Record<string, unknown> {
-    const userId = options?.userId
+  generatePuzzleMetadata(_options?: Record<string, string>): Record<string, unknown> {
+    // Select 5 random countries
+    const countries = getRandomGameCountries(TOTAL_COUNTRIES)
 
-    // Get all available country IDs from cache
-    // The cache should be preloaded when the module is imported
-    let validCountryIds = getAllCountryIds()
-
-    // Fallback if cache isn't ready (shouldn't happen normally)
-    if (!isCacheReady() || validCountryIds.length === 0) {
-      console.warn('Geodle cache not ready, using fallback')
-      validCountryIds = ['norway', 'peru', 'ethiopia', 'new-zealand', 'hungary']
-    }
-
-    // If we have a userId, use seen content tracking to avoid repeats
-    let countryId: string
-    if (userId) {
-      countryId = selectUnseenRandom('geodle', userId, validCountryIds)
-      markAsSeen('geodle', userId, countryId)
-    } else {
-      countryId = validCountryIds[Math.floor(Math.random() * validCountryIds.length)]
-    }
+    // Generate hint types for each country to ensure both players get identical hints
+    const countryHintTypes = countries.map(c => ({
+      name: c.name,
+      hintTypes: getRandomHintTypes(c.name, HINTS_PER_COUNTRY),
+    }))
 
     return {
-      countryId,
+      countries: countryHintTypes,
     }
   },
 
