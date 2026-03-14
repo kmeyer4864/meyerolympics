@@ -37,7 +37,7 @@ serve(async (req) => {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
+        model: 'claude-sonnet-4-20250514',
         max_tokens: 500,
         messages: [
           {
@@ -63,9 +63,10 @@ Format your response as exactly 4 lines, one hint per line, no numbering:
     })
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+      const errorText = await response.text()
+      console.error('Anthropic API error:', response.status, errorText)
       return new Response(
-        JSON.stringify({ error: errorData.error?.message || `API error: ${response.status}` }),
+        JSON.stringify({ error: `API error ${response.status}: ${errorText}` }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
