@@ -49,6 +49,15 @@ export default function Home() {
           Become the champion.
         </p>
 
+        {/* Daily Geodle - available to everyone */}
+        <Link
+          to="/geodle"
+          className="px-8 py-4 bg-green-600 text-white font-bold text-lg rounded-lg hover:bg-green-500 transition-colors flex items-center gap-2 mb-6"
+        >
+          <span>🌍</span>
+          Play Daily Geodle
+        </Link>
+
         {user ? (
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <Link

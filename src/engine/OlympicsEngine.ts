@@ -176,12 +176,11 @@ export async function startEvent(
 
   const eventDef = getEvent(event.event_type)
   // Pass event config (e.g., difficulty) and userId to puzzle generation
-  // generatePuzzleMetadata can be async for events that fetch data (e.g., curated puzzles)
   const eventConfig = (event.config as Record<string, string>) || {}
-  const puzzleMetadata = await Promise.resolve(eventDef.generatePuzzleMetadata({
+  const puzzleMetadata = eventDef.generatePuzzleMetadata({
     ...eventConfig,
     ...(userId ? { userId } : {}),
-  }))
+  })
 
   // Update the event with metadata and start time
   const { data: updatedEvent, error: updateError } = await supabase

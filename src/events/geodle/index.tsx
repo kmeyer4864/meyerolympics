@@ -2,7 +2,6 @@ import type { OlympicsEvent, MatchResult } from '../types'
 import GeodleGame from './GeodleGame'
 import { getRandomGameCountries } from './countryData'
 import { getVariedHintTypesForCountries } from './hintGenerator'
-import { getTodaysPuzzle } from './dailyPuzzle'
 import { tieBreakByTime } from '../types'
 
 const TOTAL_COUNTRIES = 5
@@ -69,23 +68,9 @@ export const geodleEvent: OlympicsEvent = {
     return `${countriesGuessed}/${TOTAL_COUNTRIES} found, ${totalGuesses} guesses`
   },
 
-  async generatePuzzleMetadata(_options?: Record<string, string>): Promise<Record<string, unknown>> {
-    // First, check if there's a curated daily puzzle
-    const { puzzle, countries: curatedCountries, error } = await getTodaysPuzzle()
-
-    if (puzzle && curatedCountries.length === TOTAL_COUNTRIES && !error) {
-      // Use curated puzzle with pre-defined hints
-      return {
-        countries: curatedCountries.map(c => ({
-          name: c.name,
-          hints: c.hints,
-        })),
-        curatedPuzzleId: puzzle.id,
-      }
-    }
-
-    // Fall back to dynamic generation
-    // Select 5 random countries (excludes small/obscure countries)
+  generatePuzzleMetadata(_options?: Record<string, string>): Record<string, unknown> {
+    // Olympics mode: always use random puzzles for competitive fairness
+    // (Daily curated puzzles are for the standalone /geodle page)
     const countries = getRandomGameCountries(TOTAL_COUNTRIES)
 
     // Generate varied hint types for each country

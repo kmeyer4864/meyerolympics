@@ -12,6 +12,7 @@ import EventIntro from '@/pages/EventIntro'
 import EventPlay from '@/pages/EventPlay'
 import EventResult from '@/pages/EventResult'
 import OlympicsSummary from '@/pages/OlympicsSummary'
+import DailyGeodle from '@/pages/DailyGeodle'
 
 // Admin
 import { AdminRoute } from '@/admin/AdminRoute'
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/geodle" element={<DailyGeodle />} />
 
         {/* Protected routes */}
         <Route
