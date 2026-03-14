@@ -53,6 +53,32 @@ function normalize(name: string): string {
 ;(lifeExpectancyData as LifeExpectancyEntry[]).forEach(e => lifeExpectancyMap.set(normalize(e.country), e.expectancy))
 ;(continentData as ContinentEntry[]).forEach(e => continentMap.set(normalize(e.country), e.continent))
 
+// Check if a hint reveals the country name (should be excluded)
+function hintRevealsCountry(hint: string, country: string): boolean {
+  const countryLower = country.toLowerCase()
+  const hintLower = hint.toLowerCase()
+
+  // Check for country name or common variations
+  const countryWords = countryLower.split(/\s+/)
+
+  // Direct country name match
+  if (hintLower.includes(countryLower)) return true
+
+  // Check for partial matches (e.g., "Afghan" in "Afghanistan")
+  // Only check if country name is long enough to be meaningful
+  if (countryLower.length >= 5) {
+    const root = countryLower.slice(0, Math.min(5, countryLower.length))
+    if (hintLower.includes(root)) return true
+  }
+
+  // Check each word of country name (for multi-word countries)
+  for (const word of countryWords) {
+    if (word.length >= 4 && hintLower.includes(word)) return true
+  }
+
+  return false
+}
+
 // Hint generator functions - each returns a hint string or null if data unavailable
 type HintGenerator = (country: string) => string | null
 
@@ -209,12 +235,21 @@ export function generateHints(country: string, count: number = 4, hintTypes?: st
 }
 
 // Get random hint types for a country (used in puzzle generation)
-export function getRandomHintTypes(country: string, count: number = 4): string[] {
+// Excludes hints that would reveal the country name
+// Can exclude certain hint types to ensure variety across countries
+export function getRandomHintTypes(
+  country: string,
+  count: number = 4,
+  excludeTypes: string[] = []
+): string[] {
   const availableTypes: string[] = []
 
   for (const { generator, name } of hintGenerators) {
+    // Skip excluded types (for variety across countries)
+    if (excludeTypes.includes(name)) continue
+
     const hint = generator(country)
-    if (hint) {
+    if (hint && !hintRevealsCountry(hint, country)) {
       availableTypes.push(name)
     }
   }
@@ -231,6 +266,81 @@ export function getRandomHintTypes(country: string, count: number = 4): string[]
   }
 
   return shuffled.slice(0, count)
+}
+
+// Get varied hint types for multiple countries
+// Ensures different hint types are used across countries for variety
+export function getVariedHintTypesForCountries(
+  countries: string[],
+  hintsPerCountry: number = 4
+): { name: string; hintTypes: string[] }[] {
+  const result: { name: string; hintTypes: string[] }[] = []
+  const usedTypesCount = new Map<string, number>()
+
+  for (const country of countries) {
+    // Get available hint types for this country (excluding ones that reveal the name)
+    const availableTypes: { name: string; usageCount: number }[] = []
+
+    for (const { generator, name } of hintGenerators) {
+      const hint = generator(country)
+      if (hint && !hintRevealsCountry(hint, country)) {
+        availableTypes.push({
+          name,
+          usageCount: usedTypesCount.get(name) || 0,
+        })
+      }
+    }
+
+    // Sort by usage count (prefer less-used types for variety)
+    availableTypes.sort((a, b) => a.usageCount - b.usageCount)
+
+    // Take the least-used types, with some randomization within same usage count
+    const selected: string[] = []
+    let currentUsageGroup: { name: string; usageCount: number }[] = []
+    let currentUsageCount = -1
+
+    for (const type of availableTypes) {
+      if (selected.length >= hintsPerCountry) break
+
+      if (type.usageCount !== currentUsageCount) {
+        // Shuffle the previous group and add to selected
+        for (let i = currentUsageGroup.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[currentUsageGroup[i], currentUsageGroup[j]] = [currentUsageGroup[j], currentUsageGroup[i]]
+        }
+        for (const t of currentUsageGroup) {
+          if (selected.length < hintsPerCountry) {
+            selected.push(t.name)
+          }
+        }
+
+        currentUsageGroup = [type]
+        currentUsageCount = type.usageCount
+      } else {
+        currentUsageGroup.push(type)
+      }
+    }
+
+    // Add remaining from last group
+    for (let i = currentUsageGroup.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[currentUsageGroup[i], currentUsageGroup[j]] = [currentUsageGroup[j], currentUsageGroup[i]]
+    }
+    for (const t of currentUsageGroup) {
+      if (selected.length < hintsPerCountry) {
+        selected.push(t.name)
+      }
+    }
+
+    // Update usage counts
+    for (const type of selected) {
+      usedTypesCount.set(type, (usedTypesCount.get(type) || 0) + 1)
+    }
+
+    result.push({ name: country, hintTypes: selected })
+  }
+
+  return result
 }
 
 // Get specific hint types for a country (useful for testing)

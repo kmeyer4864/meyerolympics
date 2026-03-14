@@ -1,7 +1,7 @@
 import type { OlympicsEvent, MatchResult } from '../types'
 import GeodleGame from './GeodleGame'
 import { getRandomGameCountries } from './countryData'
-import { getRandomHintTypes } from './hintGenerator'
+import { getVariedHintTypesForCountries } from './hintGenerator'
 import { tieBreakByTime } from '../types'
 
 const TOTAL_COUNTRIES = 5
@@ -57,14 +57,17 @@ export const geodleEvent: OlympicsEvent = {
   },
 
   generatePuzzleMetadata(_options?: Record<string, string>): Record<string, unknown> {
-    // Select 5 random countries
+    // Select 5 random countries (excludes small/obscure countries)
     const countries = getRandomGameCountries(TOTAL_COUNTRIES)
 
-    // Generate hint types for each country to ensure both players get identical hints
-    const countryHintTypes = countries.map(c => ({
-      name: c.name,
-      hintTypes: getRandomHintTypes(c.name, HINTS_PER_COUNTRY),
-    }))
+    // Generate varied hint types for each country
+    // This ensures: 1) different hint types across countries for variety
+    //               2) hints that reveal country name are filtered out
+    //               3) both players get identical hints
+    const countryHintTypes = getVariedHintTypesForCountries(
+      countries.map(c => c.name),
+      HINTS_PER_COUNTRY
+    )
 
     return {
       countries: countryHintTypes,

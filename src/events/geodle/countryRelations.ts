@@ -3,6 +3,8 @@
 
 import continentData from './data/country-by-continent.json'
 import bordersData from './data/country-by-borders.json'
+import populationData from './data/country-by-population.json'
+import surfaceAreaData from './data/country-by-surface-area.json'
 
 // Type definitions
 interface ContinentEntry {
@@ -13,6 +15,16 @@ interface ContinentEntry {
 interface BordersEntry {
   country: string
   borders: string[]
+}
+
+interface PopulationEntry {
+  country: string
+  population: number
+}
+
+interface SurfaceAreaEntry {
+  country: string
+  area: number
 }
 
 // Build lookup maps for efficient access
@@ -116,10 +128,32 @@ export function getAllCountryNames(): string[] {
   return (continentData as ContinentEntry[]).map(entry => entry.country)
 }
 
-// Get a random selection of countries
+// Build set of small/obscure countries to exclude (bottom 30 by population OR size)
+const smallCountries = new Set<string>()
+
+// Sort by population and mark bottom 30
+const byPopulation = [...(populationData as PopulationEntry[])]
+  .filter(e => e.population > 0)
+  .sort((a, b) => a.population - b.population)
+byPopulation.slice(0, 30).forEach(e => smallCountries.add(normalizeCountryName(e.country)))
+
+// Sort by surface area and mark bottom 30
+const byArea = [...(surfaceAreaData as SurfaceAreaEntry[])]
+  .filter(e => e.area > 0)
+  .sort((a, b) => a.area - b.area)
+byArea.slice(0, 30).forEach(e => smallCountries.add(normalizeCountryName(e.country)))
+
+// Get playable countries (excluding small/obscure ones)
+export function getPlayableCountryNames(): string[] {
+  return getAllCountryNames().filter(
+    name => !smallCountries.has(normalizeCountryName(name))
+  )
+}
+
+// Get a random selection of countries (excludes small/obscure countries)
 export function getRandomCountries(count: number, exclude: string[] = []): string[] {
   const normalizedExclude = exclude.map(normalizeCountryName)
-  const available = getAllCountryNames().filter(
+  const available = getPlayableCountryNames().filter(
     name => !normalizedExclude.includes(normalizeCountryName(name))
   )
 
