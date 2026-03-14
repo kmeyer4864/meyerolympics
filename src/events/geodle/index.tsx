@@ -2,10 +2,23 @@ import type { OlympicsEvent, MatchResult } from '../types'
 import GeodleGame from './GeodleGame'
 import { getRandomGameCountries } from './countryData'
 import { getVariedHintTypesForCountries } from './hintGenerator'
+import { getTodaysPuzzle } from './dailyPuzzle'
 import { tieBreakByTime } from '../types'
 
 const TOTAL_COUNTRIES = 5
 const HINTS_PER_COUNTRY = 4
+
+// Puzzle metadata format can be:
+// 1. Dynamic: { countries: [{name, hintTypes}] } - hints generated from types
+// 2. Curated: { countries: [{name, hints}], curatedPuzzleId } - hints already provided
+export interface GeodlePuzzleMetadata {
+  countries: Array<{
+    name: string
+    hintTypes?: string[]
+    hints?: string[]
+  }>
+  curatedPuzzleId?: string
+}
 
 export const geodleEvent: OlympicsEvent = {
   id: 'geodle',
@@ -56,7 +69,22 @@ export const geodleEvent: OlympicsEvent = {
     return `${countriesGuessed}/${TOTAL_COUNTRIES} found, ${totalGuesses} guesses`
   },
 
-  generatePuzzleMetadata(_options?: Record<string, string>): Record<string, unknown> {
+  async generatePuzzleMetadata(_options?: Record<string, string>): Promise<Record<string, unknown>> {
+    // First, check if there's a curated daily puzzle
+    const { puzzle, countries: curatedCountries, error } = await getTodaysPuzzle()
+
+    if (puzzle && curatedCountries.length === TOTAL_COUNTRIES && !error) {
+      // Use curated puzzle with pre-defined hints
+      return {
+        countries: curatedCountries.map(c => ({
+          name: c.name,
+          hints: c.hints,
+        })),
+        curatedPuzzleId: puzzle.id,
+      }
+    }
+
+    // Fall back to dynamic generation
     // Select 5 random countries (excludes small/obscure countries)
     const countries = getRandomGameCountries(TOTAL_COUNTRIES)
 

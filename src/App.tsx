@@ -13,6 +13,12 @@ import EventPlay from '@/pages/EventPlay'
 import EventResult from '@/pages/EventResult'
 import OlympicsSummary from '@/pages/OlympicsSummary'
 
+// Admin
+import { AdminRoute } from '@/admin/AdminRoute'
+import { AdminDashboard } from '@/admin/pages/AdminDashboard'
+import { CreatePuzzle } from '@/admin/pages/CreatePuzzle'
+import { EditPuzzle } from '@/admin/pages/EditPuzzle'
+
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, authLoading } = useAppStore()
@@ -108,6 +114,13 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* Admin routes */}
+        <Route element={<AdminRoute />}>
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/puzzle/new" element={<CreatePuzzle />} />
+          <Route path="/admin/puzzle/:id" element={<EditPuzzle />} />
+        </Route>
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />

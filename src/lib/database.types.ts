@@ -222,6 +222,50 @@ export interface Database {
           completed_at?: string
         }
       }
+      geodle_daily_puzzles: {
+        Row: {
+          id: string
+          play_date: string | null
+          status: 'draft' | 'scheduled' | 'published' | 'archived'
+          countries: GeodlePuzzleCountry[]
+          title: string | null
+          difficulty: 'easy' | 'medium' | 'hard'
+          created_by: string | null
+          created_at: string
+          updated_at: string
+          times_played: number
+          avg_guesses: number | null
+          completion_rate: number | null
+        }
+        Insert: {
+          id?: string
+          play_date?: string | null
+          status?: 'draft' | 'scheduled' | 'published' | 'archived'
+          countries: GeodlePuzzleCountry[]
+          title?: string | null
+          difficulty?: 'easy' | 'medium' | 'hard'
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+          times_played?: number
+          avg_guesses?: number | null
+          completion_rate?: number | null
+        }
+        Update: {
+          id?: string
+          play_date?: string | null
+          status?: 'draft' | 'scheduled' | 'published' | 'archived'
+          countries?: GeodlePuzzleCountry[]
+          title?: string | null
+          difficulty?: 'easy' | 'medium' | 'hard'
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+          times_played?: number
+          avg_guesses?: number | null
+          completion_rate?: number | null
+        }
+      }
     }
   }
 }
@@ -231,3 +275,10 @@ export type GameSession = Database['public']['Tables']['game_sessions']['Row']
 export type Olympics = Database['public']['Tables']['olympics']['Row']
 export type OlympicsEvent = Database['public']['Tables']['olympics_events']['Row']
 export type EventResult = Database['public']['Tables']['event_results']['Row']
+export type GeodleDailyPuzzle = Database['public']['Tables']['geodle_daily_puzzles']['Row']
+
+// Geodle puzzle country with hints
+export interface GeodlePuzzleCountry {
+  name: string
+  hints: [string, string, string, string]
+}

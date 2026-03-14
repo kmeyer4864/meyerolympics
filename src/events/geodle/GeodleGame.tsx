@@ -18,9 +18,11 @@ interface CountryRound {
 }
 
 // Type for puzzle metadata countries
+// Supports both dynamic hints (via hintTypes) and curated hints (direct hints array)
 interface PuzzleCountry {
   name: string
-  hintTypes: string[]
+  hintTypes?: string[]  // For dynamic hint generation
+  hints?: string[]      // For curated puzzles with pre-defined hints
 }
 
 export default function GeodleGame({
@@ -47,20 +49,43 @@ export default function GeodleGame({
       return
     }
 
-    // Load country data for all 5 countries with their specific hint types
+    // Load country data for all 5 countries
+    // Support both curated hints (direct hints array) and dynamic hints (via hintTypes)
     const loadedRounds: CountryRound[] = []
-    for (const { name, hintTypes } of puzzleCountries) {
-      const country = getCountryByName(name, hintTypes)
-      if (country) {
-        loadedRounds.push({
-          country,
-          guessHistory: [],
-          guessCount: 0,
-          completed: false,
-          failed: false,
-        })
+    for (const puzzleCountry of puzzleCountries) {
+      const { name, hintTypes, hints } = puzzleCountry
+
+      if (hints && hints.length > 0) {
+        // Curated puzzle: use provided hints directly
+        const country = getCountryByName(name)
+        if (country) {
+          loadedRounds.push({
+            country: {
+              ...country,
+              hints: hints, // Override with curated hints
+            },
+            guessHistory: [],
+            guessCount: 0,
+            completed: false,
+            failed: false,
+          })
+        } else {
+          console.warn(`[Geodle] Could not load curated country: ${name}`)
+        }
       } else {
-        console.warn(`[Geodle] Could not load country: ${name}`)
+        // Dynamic puzzle: generate hints from hintTypes
+        const country = getCountryByName(name, hintTypes)
+        if (country) {
+          loadedRounds.push({
+            country,
+            guessHistory: [],
+            guessCount: 0,
+            completed: false,
+            failed: false,
+          })
+        } else {
+          console.warn(`[Geodle] Could not load country: ${name}`)
+        }
       }
     }
 

@@ -57,7 +57,8 @@ export interface OlympicsEvent {
   formatScore(result: MatchResult): string // human-readable: "4:23", "847 pts"
 
   // Generate puzzle metadata when event starts (receives user-selected options)
-  generatePuzzleMetadata(options?: Record<string, string>): Record<string, unknown>
+  // Can be async for events that need to fetch data (e.g., curated puzzles)
+  generatePuzzleMetadata(options?: Record<string, string>): Record<string, unknown> | Promise<Record<string, unknown>>
 
   // The React component that runs the actual game
   Component: FC<EventComponentProps>

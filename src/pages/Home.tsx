@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
+import { useAdminAuth } from '@/admin/hooks/useAdminAuth'
 
 export default function Home() {
   const { user, profile, signOut } = useAppStore()
+  const { isAdmin } = useAdminAuth()
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -13,6 +15,15 @@ export default function Home() {
         </div>
         {user && (
           <div className="flex items-center gap-4">
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="text-sm text-[#FFD700] hover:text-[#FFD700]/80 transition-colors flex items-center gap-1"
+              >
+                <span>⚙️</span>
+                <span>Admin</span>
+              </Link>
+            )}
             <span className="text-gray-400 text-sm">
               {profile?.display_name}
             </span>
